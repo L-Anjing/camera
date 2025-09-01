@@ -1,0 +1,7 @@
+/home/li/camera_cxx/build/CMakeFiles/rebuild_cache.dir
+/home/li/camera_cxx/build/CMakeFiles/k4a_viewer.dir
+/home/li/camera_cxx/build/CMakeFiles/edit_cache.dir
+/home/li/camera_cxx/build/CMakeFiles/rs_viewer.dir
+/home/li/camera_cxx/build/src/yolo/CMakeFiles/rebuild_cache.dir
+/home/li/camera_cxx/build/src/yolo/CMakeFiles/edit_cache.dir
+/home/li/camera_cxx/build/src/yolo/CMakeFiles/yolo.dir
