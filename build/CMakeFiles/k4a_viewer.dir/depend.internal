@@ -6,11 +6,11 @@ CMakeFiles/k4a_viewer.dir/src/camera_k4a.cpp.o
  ../inc/infer.hpp
  ../inc/main.hpp
  ../inc/myinfer.hpp
- ../inc/realsense.hpp
  ../inc/yolo.hpp
  /home/li/camera_cxx/src/camera_k4a.cpp
  /usr/include/eigen3/Eigen/Cholesky
  /usr/include/eigen3/Eigen/Core
+ /usr/include/eigen3/Eigen/Eigenvalues
  /usr/include/eigen3/Eigen/Geometry
  /usr/include/eigen3/Eigen/Householder
  /usr/include/eigen3/Eigen/Jacobi
@@ -152,6 +152,20 @@ CMakeFiles/k4a_viewer.dir/src/camera_k4a.cpp.o
  /usr/include/eigen3/Eigen/src/Core/util/ReenableStupidWarnings.h
  /usr/include/eigen3/Eigen/src/Core/util/StaticAssert.h
  /usr/include/eigen3/Eigen/src/Core/util/XprHelper.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/ComplexEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/ComplexSchur.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/ComplexSchur_LAPACKE.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/EigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/GeneralizedEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/GeneralizedSelfAdjointEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/HessenbergDecomposition.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/RealQZ.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/RealSchur.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/RealSchur_LAPACKE.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver_LAPACKE.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/Tridiagonalization.h
  /usr/include/eigen3/Eigen/src/Geometry/AlignedBox.h
  /usr/include/eigen3/Eigen/src/Geometry/AngleAxis.h
  /usr/include/eigen3/Eigen/src/Geometry/EulerAngles.h
@@ -527,19 +541,38 @@ CMakeFiles/k4a_viewer.dir/src/camera_k4a.cpp.o
  /usr/local/include/pcl-1.15/pcl/PolygonMesh.h
  /usr/local/include/pcl-1.15/pcl/TextureMesh.h
  /usr/local/include/pcl-1.15/pcl/Vertices.h
+ /usr/local/include/pcl-1.15/pcl/cloud_iterator.h
+ /usr/local/include/pcl-1.15/pcl/common/centroid.h
  /usr/local/include/pcl-1.15/pcl/common/colors.h
+ /usr/local/include/pcl-1.15/pcl/common/common.h
  /usr/local/include/pcl-1.15/pcl/common/concatenate.h
  /usr/local/include/pcl-1.15/pcl/common/copy_point.h
+ /usr/local/include/pcl-1.15/pcl/common/eigen.h
+ /usr/local/include/pcl-1.15/pcl/common/impl/accumulators.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/centroid.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/common.hpp
  /usr/local/include/pcl-1.15/pcl/common/impl/copy_point.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/eigen.hpp
  /usr/local/include/pcl-1.15/pcl/common/impl/io.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/projection_matrix.hpp
  /usr/local/include/pcl-1.15/pcl/common/io.h
  /usr/local/include/pcl-1.15/pcl/common/point_tests.h
+ /usr/local/include/pcl-1.15/pcl/common/projection_matrix.h
  /usr/local/include/pcl-1.15/pcl/common/utils.h
  /usr/local/include/pcl-1.15/pcl/console/print.h
  /usr/local/include/pcl-1.15/pcl/conversions.h
  /usr/local/include/pcl-1.15/pcl/correspondence.h
  /usr/local/include/pcl-1.15/pcl/exceptions.h
+ /usr/local/include/pcl-1.15/pcl/filters/filter.h
+ /usr/local/include/pcl-1.15/pcl/filters/filter_indices.h
+ /usr/local/include/pcl-1.15/pcl/filters/impl/filter.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/impl/filter_indices.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/impl/statistical_outlier_removal.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/impl/voxel_grid.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/statistical_outlier_removal.h
+ /usr/local/include/pcl-1.15/pcl/filters/voxel_grid.h
  /usr/local/include/pcl-1.15/pcl/for_each_type.h
+ /usr/local/include/pcl-1.15/pcl/impl/cloud_iterator.hpp
  /usr/local/include/pcl-1.15/pcl/impl/pcl_base.hpp
  /usr/local/include/pcl-1.15/pcl/impl/point_types.hpp
  /usr/local/include/pcl-1.15/pcl/io/file_io.h
@@ -552,15 +585,25 @@ CMakeFiles/k4a_viewer.dir/src/camera_k4a.cpp.o
  /usr/local/include/pcl-1.15/pcl/io/ply/ply.h
  /usr/local/include/pcl-1.15/pcl/io/ply/ply_parser.h
  /usr/local/include/pcl-1.15/pcl/io/ply_io.h
+ /usr/local/include/pcl-1.15/pcl/kdtree/impl/kdtree_flann.hpp
+ /usr/local/include/pcl-1.15/pcl/kdtree/kdtree.h
+ /usr/local/include/pcl-1.15/pcl/kdtree/kdtree_flann.h
  /usr/local/include/pcl-1.15/pcl/memory.h
  /usr/local/include/pcl-1.15/pcl/pcl_base.h
  /usr/local/include/pcl-1.15/pcl/pcl_config.h
  /usr/local/include/pcl-1.15/pcl/pcl_exports.h
  /usr/local/include/pcl-1.15/pcl/pcl_macros.h
  /usr/local/include/pcl-1.15/pcl/point_cloud.h
+ /usr/local/include/pcl-1.15/pcl/point_representation.h
  /usr/local/include/pcl-1.15/pcl/point_struct_traits.h
  /usr/local/include/pcl-1.15/pcl/point_types.h
  /usr/local/include/pcl-1.15/pcl/register_point_struct.h
+ /usr/local/include/pcl-1.15/pcl/search/impl/kdtree.hpp
+ /usr/local/include/pcl-1.15/pcl/search/impl/organized.hpp
+ /usr/local/include/pcl-1.15/pcl/search/impl/search.hpp
+ /usr/local/include/pcl-1.15/pcl/search/kdtree.h
+ /usr/local/include/pcl-1.15/pcl/search/organized.h
+ /usr/local/include/pcl-1.15/pcl/search/search.h
  /usr/local/include/pcl-1.15/pcl/type_traits.h
  /usr/local/include/pcl-1.15/pcl/types.h
  /usr/local/include/pcl-1.15/pcl/visualization/area_picking_event.h
@@ -585,11 +628,11 @@ CMakeFiles/k4a_viewer.dir/src/k4amain.cpp.o
  ../inc/infer.hpp
  ../inc/main.hpp
  ../inc/myinfer.hpp
- ../inc/realsense.hpp
  ../inc/yolo.hpp
  /home/li/camera_cxx/src/k4amain.cpp
  /usr/include/eigen3/Eigen/Cholesky
  /usr/include/eigen3/Eigen/Core
+ /usr/include/eigen3/Eigen/Eigenvalues
  /usr/include/eigen3/Eigen/Geometry
  /usr/include/eigen3/Eigen/Householder
  /usr/include/eigen3/Eigen/Jacobi
@@ -731,6 +774,20 @@ CMakeFiles/k4a_viewer.dir/src/k4amain.cpp.o
  /usr/include/eigen3/Eigen/src/Core/util/ReenableStupidWarnings.h
  /usr/include/eigen3/Eigen/src/Core/util/StaticAssert.h
  /usr/include/eigen3/Eigen/src/Core/util/XprHelper.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/ComplexEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/ComplexSchur.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/ComplexSchur_LAPACKE.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/EigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/GeneralizedEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/GeneralizedSelfAdjointEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/HessenbergDecomposition.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/MatrixBaseEigenvalues.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/RealQZ.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/RealSchur.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/RealSchur_LAPACKE.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/SelfAdjointEigenSolver_LAPACKE.h
+ /usr/include/eigen3/Eigen/src/Eigenvalues/Tridiagonalization.h
  /usr/include/eigen3/Eigen/src/Geometry/AlignedBox.h
  /usr/include/eigen3/Eigen/src/Geometry/AngleAxis.h
  /usr/include/eigen3/Eigen/src/Geometry/EulerAngles.h
@@ -1106,19 +1163,38 @@ CMakeFiles/k4a_viewer.dir/src/k4amain.cpp.o
  /usr/local/include/pcl-1.15/pcl/PolygonMesh.h
  /usr/local/include/pcl-1.15/pcl/TextureMesh.h
  /usr/local/include/pcl-1.15/pcl/Vertices.h
+ /usr/local/include/pcl-1.15/pcl/cloud_iterator.h
+ /usr/local/include/pcl-1.15/pcl/common/centroid.h
  /usr/local/include/pcl-1.15/pcl/common/colors.h
+ /usr/local/include/pcl-1.15/pcl/common/common.h
  /usr/local/include/pcl-1.15/pcl/common/concatenate.h
  /usr/local/include/pcl-1.15/pcl/common/copy_point.h
+ /usr/local/include/pcl-1.15/pcl/common/eigen.h
+ /usr/local/include/pcl-1.15/pcl/common/impl/accumulators.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/centroid.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/common.hpp
  /usr/local/include/pcl-1.15/pcl/common/impl/copy_point.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/eigen.hpp
  /usr/local/include/pcl-1.15/pcl/common/impl/io.hpp
+ /usr/local/include/pcl-1.15/pcl/common/impl/projection_matrix.hpp
  /usr/local/include/pcl-1.15/pcl/common/io.h
  /usr/local/include/pcl-1.15/pcl/common/point_tests.h
+ /usr/local/include/pcl-1.15/pcl/common/projection_matrix.h
  /usr/local/include/pcl-1.15/pcl/common/utils.h
  /usr/local/include/pcl-1.15/pcl/console/print.h
  /usr/local/include/pcl-1.15/pcl/conversions.h
  /usr/local/include/pcl-1.15/pcl/correspondence.h
  /usr/local/include/pcl-1.15/pcl/exceptions.h
+ /usr/local/include/pcl-1.15/pcl/filters/filter.h
+ /usr/local/include/pcl-1.15/pcl/filters/filter_indices.h
+ /usr/local/include/pcl-1.15/pcl/filters/impl/filter.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/impl/filter_indices.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/impl/statistical_outlier_removal.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/impl/voxel_grid.hpp
+ /usr/local/include/pcl-1.15/pcl/filters/statistical_outlier_removal.h
+ /usr/local/include/pcl-1.15/pcl/filters/voxel_grid.h
  /usr/local/include/pcl-1.15/pcl/for_each_type.h
+ /usr/local/include/pcl-1.15/pcl/impl/cloud_iterator.hpp
  /usr/local/include/pcl-1.15/pcl/impl/pcl_base.hpp
  /usr/local/include/pcl-1.15/pcl/impl/point_types.hpp
  /usr/local/include/pcl-1.15/pcl/io/file_io.h
@@ -1131,15 +1207,25 @@ CMakeFiles/k4a_viewer.dir/src/k4amain.cpp.o
  /usr/local/include/pcl-1.15/pcl/io/ply/ply.h
  /usr/local/include/pcl-1.15/pcl/io/ply/ply_parser.h
  /usr/local/include/pcl-1.15/pcl/io/ply_io.h
+ /usr/local/include/pcl-1.15/pcl/kdtree/impl/kdtree_flann.hpp
+ /usr/local/include/pcl-1.15/pcl/kdtree/kdtree.h
+ /usr/local/include/pcl-1.15/pcl/kdtree/kdtree_flann.h
  /usr/local/include/pcl-1.15/pcl/memory.h
  /usr/local/include/pcl-1.15/pcl/pcl_base.h
  /usr/local/include/pcl-1.15/pcl/pcl_config.h
  /usr/local/include/pcl-1.15/pcl/pcl_exports.h
  /usr/local/include/pcl-1.15/pcl/pcl_macros.h
  /usr/local/include/pcl-1.15/pcl/point_cloud.h
+ /usr/local/include/pcl-1.15/pcl/point_representation.h
  /usr/local/include/pcl-1.15/pcl/point_struct_traits.h
  /usr/local/include/pcl-1.15/pcl/point_types.h
  /usr/local/include/pcl-1.15/pcl/register_point_struct.h
+ /usr/local/include/pcl-1.15/pcl/search/impl/kdtree.hpp
+ /usr/local/include/pcl-1.15/pcl/search/impl/organized.hpp
+ /usr/local/include/pcl-1.15/pcl/search/impl/search.hpp
+ /usr/local/include/pcl-1.15/pcl/search/kdtree.h
+ /usr/local/include/pcl-1.15/pcl/search/organized.h
+ /usr/local/include/pcl-1.15/pcl/search/search.h
  /usr/local/include/pcl-1.15/pcl/type_traits.h
  /usr/local/include/pcl-1.15/pcl/types.h
  /usr/local/include/pcl-1.15/pcl/visualization/area_picking_event.h

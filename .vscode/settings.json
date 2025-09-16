@@ -85,6 +85,7 @@
         "ios": "cpp",
         "__bit_reference": "cpp",
         "__functional_base": "cpp",
-        "semaphore": "cpp"
+        "semaphore": "cpp",
+        "__mutex_base": "cpp"
     }
 }

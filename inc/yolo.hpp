@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+
 namespace yolo {
 
 enum class Type : int {

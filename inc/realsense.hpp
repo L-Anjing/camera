@@ -11,6 +11,11 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/common/common.h>
+#include <pcl/common/centroid.h>
+#include <pcl/common/eigen.h>
+
 
 #include <iostream>
 #include <string>
@@ -18,6 +23,7 @@
 #include <unistd.h>
 
 #include "yolo.hpp"
+#include "main.hpp"
 
 #define COUT_RED_START std::cout << "\033[1;31m";
 #define COUT_GREEN_START std::cout << "\033[1;32m";
@@ -31,6 +37,7 @@
 #undef MIN_DISTANCE
 #define MIN_DISTANCE 0.1
 
+
 class RealSense
 {
 private:
@@ -43,7 +50,6 @@ private:
     cv::Mat mask;
     int frame_count = 0;
 
-
     RealSense() = default;
 
     void Configuration_Default();
@@ -54,8 +60,9 @@ public:
     rs2_intrinsics intrinsics_depth;
     rs2_intrinsics intrinsics_color;
     rs2_intrinsics intrinsics_infrared;
+    float depth_scale = 0.001f;
 
-    //获取彩色数据流和深度数据流的帧数
+    // 获取彩色数据流和深度数据流的帧数
     static RealSense Create_Default();
 
     // 创建一个只包含红外相机的RealSense对象
@@ -73,19 +80,26 @@ public:
     // 将获取的左右红外图像转换为OpenCV的cv::Mat格式
     void Infrared_to_Cv(cv::Mat &image_cv_infrared_left, cv::Mat &image_cv_infrared_right);
 
-    void Color_With_Mask(cv::Mat &image_cv_color,yolo::BoxArray objs);
+    void Color_With_Mask(cv::Mat &image_cv_color, yolo::BoxArray objs);
 
-    //过滤或者标记出特定区域的深度信息
-    void Depth_With_Mask(cv::Mat &image_cv_depth,yolo::BoxArray objs);
+    // 过滤或者标记出特定区域的深度信息
+    void Depth_With_Mask(cv::Mat &image_cv_depth, yolo::BoxArray objs);
 
     // 将深度图像转换为PCL的点云格式
     void Value_Depth_to_Pcl(pcl::PointCloud<pcl::PointXYZ> &cloud);
 
     // 掩码的深度图像转换为点云格式
-    void Value_Mask_to_Pcl(pcl::PointCloud<pcl::PointXYZ> &cloud);
+    BoundingBox3D Value_Mask_to_Pcl(
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud,
+        const cv::Mat &depth_image,
+        yolo::BoxArray objs);
 
     // 保存指定数量的彩色图像
     void Save_Image(int amount, std::string output_dir);
+
+    // 生成目标点云
+    void Mask_Depth_to_Pcl(pcl::PointCloud<pcl::PointXYZ> &cloud,
+                           const cv::Mat &mask);
 
     ~RealSense() = default;
 };
