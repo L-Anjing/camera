@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../devel/lib/libyolo.a  CMakeFiles/yolo.dir/yolo_generated_infer.cu.o CMakeFiles/yolo.dir/yolo_generated_yolo.cu.o
-/usr/bin/ranlib ../../devel/lib/libyolo.a
