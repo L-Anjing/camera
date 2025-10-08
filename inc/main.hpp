@@ -5,7 +5,7 @@
 #include <opencv2/opencv.hpp>
 
 
-
+//点云显示相关头文件
 #include <pcl/io/pcd_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 struct BoundingBox3D

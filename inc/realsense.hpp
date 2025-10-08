@@ -8,14 +8,21 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 
+// 点云基础头文件
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
+
+// PCL 滤波头文件
+#include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/radius_outlier_removal.h>
+
+// PCL PCA 计算
 #include <pcl/common/common.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/eigen.h>
-
+#include <Eigen/Dense>
 
 #include <iostream>
 #include <string>
@@ -36,7 +43,6 @@
 
 #undef MIN_DISTANCE
 #define MIN_DISTANCE 0.1
-
 
 class RealSense
 {
@@ -101,7 +107,10 @@ public:
     void Mask_Depth_to_Pcl(pcl::PointCloud<pcl::PointXYZ> &cloud,
                            const cv::Mat &mask);
 
-    ~RealSense() = default;
+    //抓取图像并转换为cv                
+    bool Capture(cv::Mat &color, cv::Mat &depth);
+
+        ~RealSense() = default;
 };
 
 #endif // REALSENSE_HPP

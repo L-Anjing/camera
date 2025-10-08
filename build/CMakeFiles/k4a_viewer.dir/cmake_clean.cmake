@@ -2,8 +2,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/k4a_viewer.dir/src/camera_k4a.cpp.o"
   "CMakeFiles/k4a_viewer.dir/src/k4amain.cpp.o"
   "CMakeFiles/k4a_viewer.dir/src/myinfer.cpp.o"
-  "k4a_viewer"
-  "k4a_viewer.pdb"
+  "devel/lib/camera_bridge/k4a_viewer"
+  "devel/lib/camera_bridge/k4a_viewer.pdb"
 )
 
 # Per-language clean rules from dependency scanning.

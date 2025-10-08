@@ -140,3 +140,55 @@ Yolo::Yolo()
 Yolo::~Yolo()
 {
 }
+std::vector<GridDetection> Yolo::Inference_Grid(cv::Mat &image, bool draw_result) {
+    std::vector<GridDetection> grid_results;
+
+    // 确保模型已加载
+    if (!load_flag) {
+        yolo = yolo::load(engine, type);
+        load_flag = 1;
+    }
+    if (!yolo) {
+        std::cerr << "Failed to load engine" << std::endl;
+        return grid_results;
+    }
+
+    // 推理开始计时
+    auto Start = std::chrono::system_clock::now();
+    auto objs = yolo->forward(cvimg(image));
+    auto End = std::chrono::system_clock::now();
+    auto Duration = std::chrono::duration_cast<std::chrono::microseconds>(End - Start);
+    std::cout << "Infer Duration: " 
+              << double(Duration.count()) * std::chrono::microseconds::period::num /
+                 std::chrono::microseconds::period::den 
+              << "s" << std::endl;
+
+    int grid_rows = 4; // 网格行数
+    int grid_cols = 3; // 网格列数
+    int cell_h = image.rows / grid_rows;
+    int cell_w = image.cols / grid_cols;
+
+    for (auto &obj : objs) {
+        GridDetection det;
+        det.row = obj.top / cell_h;
+        det.col = obj.left / cell_w;
+        det.class_label = obj.class_label;
+        det.confidence = obj.confidence;
+        det.bbox = cv::Rect(obj.left, obj.top, obj.right - obj.left, obj.bottom - obj.top);
+
+        grid_results.push_back(det);
+
+        if (draw_result) {
+            cv::rectangle(image, det.bbox, cv::Scalar(0, 255, 0), 2);
+            cv::putText(image, std::to_string(det.class_label),
+                        cv::Point(det.bbox.x, det.bbox.y - 5),
+                        cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
+        }
+
+        std::cout << "(" << det.row << ", " << det.col
+                  << ", class=" << det.class_label
+                  << ", conf=" << det.confidence << ")\n";
+    }
+
+    return grid_results;
+}

@@ -9,6 +9,7 @@ void RealSense::Configuration_Default()
     cfg.enable_stream(RS2_STREAM_COLOR, 640, 480, RS2_FORMAT_RGB8, 60);
     cfg.enable_stream(RS2_STREAM_DEPTH, 640, 480, RS2_FORMAT_Z16, 60);
     profile = pipe.start(cfg);
+    std::cout << "管道启动成功！" << std::endl;
     rs2::video_stream_profile color_profile =
         profile.get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>();
     intrinsics_color = color_profile.get_intrinsics();
@@ -79,7 +80,7 @@ void RealSense::Image_to_Cv(cv::Mat &image_cv_color, cv::Mat &image_cv_depth)
     image_rs_depth = cv::Mat(frame_depth.get_height(), frame_depth.get_width(), CV_16UC1, (void *)frame_depth.get_data(), cv::Mat::AUTO_STEP);
 
     // Convert the depth frame to 8-bit grayscale image
-    image_rs_depth.convertTo(image_rs_depth, CV_8UC1, 255.0 / 1000.0);
+    // image_rs_depth.convertTo(image_rs_depth, CV_8UC1, 255.0 / 1000.0);
 
     // Copy the Mat objects to the output parameters
     image_cv_color = image_rs_color;
@@ -219,14 +220,24 @@ BoundingBox3D RealSense::Value_Mask_to_Pcl(
     bbox.max_pt = cv::Point3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
     bbox.center = cv::Point3f(0, 0, 0);
     bbox.principal_dir = cv::Vec3f(0, 0, 0);
-    bbox.cls_name = "";
+    bbox.cls_name = "unknown";
 
     size_t valid_points = 0;
 
+    // depth单位 mm -> m
+    const float depth_scale = 0.001f;
+
+    // 相机内参
+    float fx = intrinsics_depth.fx;
+    float fy = intrinsics_depth.fy;
+    float cx = intrinsics_depth.ppx;
+    float cy = intrinsics_depth.ppy;
+
     for (auto &obj : objs)
     {
-        bbox.cls_name = obj.class_label; // 从 YOLO 推理结果获取类别
+        bbox.cls_name = obj.class_label;
 
+        // 生成 mask
         cv::Mat mask;
         if (obj.seg)
         {
@@ -240,42 +251,45 @@ BoundingBox3D RealSense::Value_Mask_to_Pcl(
             cv::rectangle(mask, cv::Rect(0, 0, mask.cols, mask.rows), cv::Scalar(255), cv::FILLED);
         }
 
-        // 提取点云
-        for (int v = 0; v < mask.rows; v++)
+        // 遍历 mask 提取点云
+        for (int v = 0; v < mask.rows; ++v)
         {
-            for (int u = 0; u < mask.cols; u++)
+            for (int u = 0; u < mask.cols; ++u)
             {
-                if (mask.at<uchar>(v, u) > 0)
-                {
-                    int px = obj.left + u;
-                    int py = obj.top + v;
+                if (mask.at<uchar>(v, u) == 0)
+                    continue;
 
-                    if (px < 0 || px >= depth_image.cols || py < 0 || py >= depth_image.rows)
-                        continue;
+                int px = obj.left + u;
+                int py = obj.top + v;
 
-                    float depth_value = depth_image.at<uint16_t>(py, px) * depth_scale;
-                    if (depth_value <= 0.0f)
-                        continue;
+                if (px < 0 || px >= depth_image.cols || py < 0 || py >= depth_image.rows)
+                    continue;
 
-                    float X = (px - intrinsics_infrared.ppx) * depth_value / intrinsics_infrared.fx;
-                    float Y = (py - intrinsics_infrared.ppy) * depth_value / intrinsics_infrared.fy;
-                    float Z = depth_value;
+                uint16_t d = depth_image.at<uint16_t>(py, px);
+                if (d == 0)
+                    continue; // depth无效
 
-                    cloud->points.emplace_back(X, Y, Z);
+                float depth_value = d * depth_scale;
 
-                    bbox.min_pt.x = std::min(bbox.min_pt.x, X);
-                    bbox.min_pt.y = std::min(bbox.min_pt.y, Y);
-                    bbox.min_pt.z = std::min(bbox.min_pt.z, Z);
+                // 坐标转换
+                float X = (px - cx) * depth_value / fx;
+                float Y = -(py - cy) * depth_value / fy; // 保持Y向上
+                float Z = depth_value;
 
-                    bbox.max_pt.x = std::max(bbox.max_pt.x, X);
-                    bbox.max_pt.y = std::max(bbox.max_pt.y, Y);
-                    bbox.max_pt.z = std::max(bbox.max_pt.z, Z);
+                cloud->points.emplace_back(X, Y, Z);
 
-                    bbox.center.x += X;
-                    bbox.center.y += Y;
-                    bbox.center.z += Z;
-                    valid_points++;
-                }
+                bbox.min_pt.x = std::min(bbox.min_pt.x, X);
+                bbox.min_pt.y = std::min(bbox.min_pt.y, Y);
+                bbox.min_pt.z = std::min(bbox.min_pt.z, Z);
+
+                bbox.max_pt.x = std::max(bbox.max_pt.x, X);
+                bbox.max_pt.y = std::max(bbox.max_pt.y, Y);
+                bbox.max_pt.z = std::max(bbox.max_pt.z, Z);
+
+                bbox.center.x += X;
+                bbox.center.y += Y;
+                bbox.center.z += Z;
+                valid_points++;
             }
         }
     }
@@ -289,39 +303,26 @@ BoundingBox3D RealSense::Value_Mask_to_Pcl(
     else
     {
         bbox.center = cv::Point3f(0, 0, 0);
+        return bbox; // 无点
     }
 
     cloud->width = cloud->points.size();
     cloud->height = 1;
     cloud->is_dense = false;
 
-    if (cloud->empty())
-        return bbox;
+    // PCA 主方向
+    if (!cloud->empty())
+    {
+        Eigen::Vector4f centroid;
+        pcl::compute3DCentroid(*cloud, centroid);
+        Eigen::Matrix3f cov;
+        pcl::computeCovarianceMatrixNormalized(*cloud, centroid, cov);
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver;
+        solver.compute(cov, Eigen::ComputeEigenvectors);
+        Eigen::Vector3f principal = solver.eigenvectors().col(2);
 
-    // 1. 统计滤波，去掉离群点
-    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
-    sor.setInputCloud(cloud);
-    sor.setMeanK(30);
-    sor.setStddevMulThresh(1.0);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr filtered(new pcl::PointCloud<pcl::PointXYZ>);
-    sor.filter(*filtered);
-
-    if (filtered->empty())
-        return bbox;
-
-    // 2. PCA 主方向
-    Eigen::Vector4f centroid;
-    pcl::compute3DCentroid(*filtered, centroid);
-
-    Eigen::Matrix3f covariance;
-    pcl::computeCovarianceMatrixNormalized(*filtered, centroid, covariance);
-
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);
-    Eigen::Matrix3f eig_vectors = eigen_solver.eigenvectors();
-
-    // 取最大特征值对应的特征向量（主方向）
-    Eigen::Vector3f principal = eig_vectors.col(2);
-    bbox.principal_dir = cv::Vec3f(principal(0), principal(1), principal(2));
+        bbox.principal_dir = cv::Vec3f(principal(0), principal(1), principal(2));
+    }
 
     return bbox;
 }
@@ -382,4 +383,34 @@ void RealSense::Mask_Depth_to_Pcl(pcl::PointCloud<pcl::PointXYZ> &cloud,
         }
     }
     std::cout << "Mask PointCloud:" << cloud.size() << std::endl;
+}
+bool RealSense::Capture(cv::Mat &color, cv::Mat &depth)
+{
+    static rs2::pipeline pipe;
+    static auto last_capture_time = std::chrono::steady_clock::now();
+
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_capture_time);
+    if (elapsed.count() < 1000)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000 - elapsed.count()));
+    }
+    rs2::frameset frames = pipe.wait_for_frames();
+    rs2::frame color_frame = frames.get_color_frame();
+    rs2::frame depth_frame = frames.get_depth_frame();
+
+    if (!color_frame || !depth_frame)
+        return false;
+
+    color = cv::Mat(cv::Size(color_frame.as<rs2::video_frame>().get_width(),
+                             color_frame.as<rs2::video_frame>().get_height()),
+                    CV_8UC3, (void *)color_frame.get_data(), cv::Mat::AUTO_STEP);
+
+    depth = cv::Mat(cv::Size(depth_frame.as<rs2::video_frame>().get_width(),
+                             depth_frame.as<rs2::video_frame>().get_height()),
+                    CV_16U, (void *)depth_frame.get_data(), cv::Mat::AUTO_STEP);
+
+    cv::cvtColor(color, color, cv::COLOR_BGR2RGB); // 转换为OpenCV默认格式
+    last_capture_time = std::chrono::steady_clock::now();
+    return true;
 }
