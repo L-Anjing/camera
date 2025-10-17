@@ -30,28 +30,24 @@ if(DEFINED ENV{ROS_DISTRO} OR DEFINED CATKIN_DEVEL_PREFIX)
     catkin_package(
         CATKIN_DEPENDS roscpp std_msgs sensor_msgs cv_bridge image_transport
     )
-
-    include_directories(
-        ${catkin_INCLUDE_DIRS}
-        /usr/local/cuda/include
-        ${PCL_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        ${TensorRT_ROOT}/include
-        inc
-    )
-
 else()
     message(STATUS "🔸 No ROS detected, building without ROS")
     set(BUILD_WITH_ROS OFF)
-
-    include_directories(
-        /usr/local/cuda/include
-        ${PCL_INCLUDE_DIRS}
-        ${OpenCV_INCLUDE_DIRS}
-        ${TensorRT_ROOT}/include
-        inc
-    )
 endif()
+
+include_directories(
+    ${catkin_INCLUDE_DIRS}
+    /usr/local/cuda/include
+    ${PCL_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
+    ${TensorRT_ROOT}/include
+    ${PROJECT_SOURCE_DIR}/inc
+)
+
+if(BUILD_WITH_ROS)
+    include_directories(${catkin_INCLUDE_DIRS})
+endif()
+
 
 # ---- 链接路径 ----
 link_directories(
@@ -63,47 +59,48 @@ link_directories(
 # ---- YOLO子模块 ----
 add_subdirectory(src/yolo)
 
-#             通用可执行文件
 
-#---realsense---
-add_executable(rs_viewer src/rsmain.cpp src/realsense.cpp src/myinfer.cpp src/yolo/yolo.cu)
-target_link_libraries(rs_viewer PRIVATE
+#通用可执行文件
+set(COMMON_LIBS
     ${OpenCV_LIBS}
     ${PCL_LIBRARIES}
     nvinfer
     nvonnxparser
-    realsense2::realsense2
     ${CUDA_LIBRARIES}
     yolo
     -lffi
+)
+#---realsense---
+add_executable(rs_viewer src/rsmain.cpp src/realsense.cpp src/myinfer.cpp src/yolo/yolo.cu)
+target_link_libraries(rs_viewer PRIVATE
+
+    realsense2::realsense2
+    ${COMMON_LIBS}
 )
 
 
 #---K4A---
 add_executable(k4a_viewer src/k4amain.cpp src/camera_k4a.cpp src/myinfer.cpp src/yolo/yolo.cu)
 target_link_libraries(k4a_viewer PRIVATE
-    ${OpenCV_LIBS}
-    ${PCL_LIBRARIES}
-    nvinfer
-    nvonnxparser
+
     k4a::k4a
-    ${CUDA_LIBRARIES}
-    yolo
-    -lffi
+    ${COMMON_LIBS}
 )
 
 #---one_eye---
 add_executable(one_eye src/one_eye.cpp src/myinfer.cpp src/yolo/yolo.cu src/realsense.cpp)
 target_link_libraries(one_eye PRIVATE
-    ${OpenCV_LIBS}
-    ${PCL_LIBRARIES}
-    nvinfer
-    nvonnxparser
+
     realsense2::realsense2
-    ${CUDA_LIBRARIES}
-    yolo
-    -lffi
+    ${COMMON_LIBS}
 )
+# #---dynamic_rocog---
+# add_executable(dynamic_recog src/dynamic_recog.cpp src/grid_state.cpp src/myinfer.cpp src/yolo/yolo.cu src/camera_k4a.cpp)
+# target_link_libraries(dynamic_recog PRIVATE
+
+#     k4a::k4a
+#     ${COMMON_LIBS}
+# )
 
 #             ROS可执行文件（仅在ROS下编译）
 if(BUILD_WITH_ROS)
@@ -166,5 +163,29 @@ if(BUILD_WITH_ROS)
         -lffi
     )
     install(TARGETS one_eye_ros RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+    #---dynamic_recog---#
+    add_executable(dynamic_recog_ros src/dynamic_recog.cpp src/grid_state.cpp src/camera_k4a.cpp src/myinfer.cpp src/yolo/yolo.cu src/ros_interface.cpp)
+    target_include_directories(dynamic_recog_ros PRIVATE
+    target_compile_definitions (dynamic_recog_ros PRIVATE BUILD_WITH_ROS)
+        ${catkin_INCLUDE_DIRS}
+        inc
+    )
+    target_link_libraries(dynamic_recog_ros PRIVATE
+        ${catkin_LIBRARIES}
+        ${OpenCV_LIBS}
+        ${PCL_LIBRARIES}
+        nvinfer
+        nvonnxparser
+        k4a::k4a
+        ${CUDA_LIBRARIES}
+        yolo
+        pthread
+        -lffi
+    )
+
+    install(TARGETS dynamic_recog_ros
+        RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+    )
 
 endif()

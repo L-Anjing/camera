@@ -81,6 +81,8 @@ public:
 
     void Save_Image(int amount, std::string output_dir);
 
+    void get_intrinsics(float &fx ,float &fy ,float &cx ,float &cy);
+
     K4a()
     {
         Installed_Count();

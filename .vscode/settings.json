@@ -87,7 +87,22 @@
         "__functional_base": "cpp",
         "semaphore": "cpp",
         "__mutex_base": "cpp",
-        "dense": "cpp"
+        "dense": "cpp",
+        "csetjmp": "cpp",
+        "csignal": "cpp",
+        "any": "cpp",
+        "coroutine": "cpp",
+        "cuchar": "cpp",
+        "forward_list": "cpp",
+        "unordered_set": "cpp",
+        "netfwd": "cpp",
+        "regex": "cpp",
+        "hash_map": "cpp",
+        "hash_set": "cpp",
+        "rope": "cpp",
+        "slist": "cpp",
+        "numbers": "cpp",
+        "scoped_allocator": "cpp"
     },
     "python.autoComplete.extraPaths": [
         "/home/li/catkin_ws/devel/lib/python3/dist-packages",
@@ -96,5 +111,14 @@
     "python.analysis.extraPaths": [
         "/home/li/catkin_ws/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
-    ]
+    ],
+    // "cmake.configureSettings": {
+    //     "BUILD_WITH_ROS": "OFF"
+    // },
+    // // 让 VS Code 使用系统的CMake而非ROS环境
+    // "cmake.environment": {
+    //     "ROS_DISTRO": ""
+    // },
+    // // 避免干扰 IntelliSense
+    // "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }

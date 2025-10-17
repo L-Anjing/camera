@@ -307,7 +307,6 @@ BoundingBox3D K4a::Value_Mask_to_Pcl(
     Eigen::Vector3f principal = eig_vectors.col(2);
     bbox.principal_dir = cv::Vec3f(principal(0), principal(1), principal(2));
 
-    
     // [NEW] 用滤波后的点云重算 bbox 中心
     bbox.center = cv::Point3f(centroid(0), centroid(1), centroid(2));
 
@@ -385,4 +384,12 @@ void K4a::Value_Depth_to_Pcl(pcl::PointCloud<pcl::PointXYZ> &cloud)
         }
     }
     std::cout << "Global PointCloud:" << cloud.size() << std::endl;
+}
+void K4a::get_intrinsics(float &fx, float &fy, float &cx, float &cy)
+{
+    k4a_calibration_camera_t calib = k4aCalibration.color_camera_calibration;
+    fx = calib.intrinsics.parameters.param.fx;
+    fy = calib.intrinsics.parameters.param.fy;
+    cx = calib.intrinsics.parameters.param.cx;
+    cy = calib.intrinsics.parameters.param.cy;
 }
