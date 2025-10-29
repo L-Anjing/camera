@@ -393,3 +393,96 @@ void K4a::get_intrinsics(float &fx, float &fy, float &cx, float &cy)
     cx = calib.intrinsics.parameters.param.cx;
     cy = calib.intrinsics.parameters.param.cy;
 }
+void K4a::record_videos(const std::string &output_path_prefix,const std::string &obj)
+{
+    cv::VideoWriter writer;
+    bool recording = false;
+    int file_index = 0; // 自动编号
+    int recorded_frames = 0;
+
+    std::cout << "[INFO] 按 's' 开始录制，'e' 停止当前录制，'q' 退出（若在录制则先停止）。\n";
+    while (true)
+    {
+        // 获取一帧（阻塞超时1000ms）
+        if (!device.get_capture(&capture, std::chrono::milliseconds(1000)))
+            continue;
+
+        k4a::image image_k4a_color = capture.get_color_image();
+        if (!image_k4a_color.handle())
+            continue;
+
+        cv::Mat frame_rgba(image_k4a_color.get_height_pixels(),
+                           image_k4a_color.get_width_pixels(),
+                           CV_8UC4,
+                           (void *)image_k4a_color.get_buffer());
+        cv::Mat frame_bgr;
+        cv::cvtColor(frame_rgba, frame_bgr, cv::COLOR_BGRA2BGR);
+
+        // 显示画面（便于按键控制）
+        cv::imshow("K4A Manual Recorder", frame_bgr);
+
+        // 非阻塞读取键（等待 1 ms）
+        char key = (char)cv::waitKey(1);
+
+        if (key == 's' && !recording)
+        {
+            // 打开新文件
+            std::ostringstream oss;
+            std::string path = output_path_prefix;
+            if (path.back() != '/' && path.back() != '\\')
+                path += '/';
+
+            oss << path << obj << "_" << file_index << ".mp4";
+            std::string fname = oss.str();
+
+            // 四字符编码 mp4v (可根据需要改)
+            writer.open(fname,
+                        cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                        30.0,
+                        cv::Size(frame_bgr.cols, frame_bgr.rows));
+            if (!writer.isOpened())
+            {
+                std::cerr << "[ERROR] 无法打开视频文件: " << fname << std::endl;
+            }
+            else
+            {
+                recording = true;
+                recorded_frames = 0;
+                std::cout << "[INFO] 开始录制: " << fname << std::endl;
+            }
+        }
+        else if (key == 'e' && recording)
+        {
+            // 停止当前录制
+            writer.release();
+            recording = false;
+            std::cout << "[INFO] 停止录制，保存文件索引: " << file_index << "（帧数: " << recorded_frames << "）\n";
+            file_index++;
+        }
+        else if (key == 'q')
+        {
+            // 退出：如果正在录制，先停止并保存
+            if (recording)
+            {
+                writer.release();
+                recording = false;
+                std::cout << "[INFO] 停止录制并退出，保存文件索引: " << file_index << "（帧数: " << recorded_frames << "）\n";
+                file_index++;
+            }
+            break;
+        }
+
+        // 若处于录制状态则写帧
+        if (recording && writer.isOpened())
+        {
+            writer.write(frame_bgr);
+            recorded_frames++;
+        }
+
+        // 轻微睡眠以降低 CPU 占用
+        usleep(1000); // 1 ms
+    }
+
+    // 清理窗口（不处理 device 的关闭）
+    cv::destroyWindow("K4A Manual Recorder");
+}

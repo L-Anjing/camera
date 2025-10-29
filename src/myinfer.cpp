@@ -110,9 +110,9 @@ void Yolo::Single_Inference(cv::Mat &image, yolo::BoxArray &objs_out)
     return;
   }
 
-  // Ensure the input image is resized to the model's expected input size (e.g., 640x640)
-  cv::Mat resized_image;
-  cv::resize(image, resized_image, cv::Size(640, 640)); // Resize to model input size
+  // // Ensure the input image is resized to the model's expected input size (e.g., 640x640)
+  // cv::Mat resized_image;
+  // cv::resize(image, resized_image, cv::Size(640, 640)); // Resize to model input size
 
   auto Start = std::chrono::system_clock::now();
 

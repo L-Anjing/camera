@@ -71,7 +71,7 @@ set(COMMON_LIBS
     -lffi
 )
 #---realsense---
-add_executable(rs_viewer src/rsmain.cpp src/realsense.cpp src/myinfer.cpp src/yolo/yolo.cu)
+add_executable(rs_viewer src/rs_detect.cpp src/realsense.cpp src/myinfer.cpp src/yolo/yolo.cu)
 target_link_libraries(rs_viewer PRIVATE
 
     realsense2::realsense2
@@ -80,7 +80,7 @@ target_link_libraries(rs_viewer PRIVATE
 
 
 #---K4A---
-add_executable(k4a_viewer src/k4amain.cpp src/camera_k4a.cpp src/myinfer.cpp src/yolo/yolo.cu)
+add_executable(k4a_viewer src/k4a_detect.cpp src/camera_k4a.cpp src/myinfer.cpp src/yolo/yolo.cu)
 target_link_libraries(k4a_viewer PRIVATE
 
     k4a::k4a
@@ -94,6 +94,15 @@ target_link_libraries(one_eye PRIVATE
     realsense2::realsense2
     ${COMMON_LIBS}
 )
+
+#--k4a_record_videos--
+add_executable(record_videos src/k4a_capture.cpp src/camera_k4a.cpp)
+target_link_libraries(record_videos PRIVATE
+
+    k4a::k4a
+    ${COMMON_LIBS}
+)
+
 # #---dynamic_rocog---
 # add_executable(dynamic_recog src/dynamic_recog.cpp src/grid_state.cpp src/myinfer.cpp src/yolo/yolo.cu src/camera_k4a.cpp)
 # target_link_libraries(dynamic_recog PRIVATE
@@ -105,7 +114,7 @@ target_link_libraries(one_eye PRIVATE
 #             ROS可执行文件（仅在ROS下编译）
 if(BUILD_WITH_ROS)
     #---k4a_viewer_ros---
-    add_executable(k4a_viewer_ros src/k4amain.cpp src/camera_k4a.cpp src/myinfer.cpp src/yolo/yolo.cu)
+    add_executable(k4a_viewer_ros src/k4a_detect.cpp src/camera_k4a.cpp src/myinfer.cpp src/yolo/yolo.cu)
     target_compile_definitions(k4a_viewer_ros PRIVATE BUILD_WITH_ROS)
     target_include_directories(k4a_viewer_ros PRIVATE
         ${catkin_INCLUDE_DIRS}
@@ -129,7 +138,7 @@ if(BUILD_WITH_ROS)
     )
 
     #---rs_viewer_ros---
-    add_executable(rs_viewer_ros src/rsmain.cpp src/realsense.cpp src/myinfer.cpp src/yolo/yolo.cu)
+    add_executable(rs_viewer_ros src/rs_detect.cpp src/realsense.cpp src/myinfer.cpp src/yolo/yolo.cu)
     target_compile_definitions(rs_viewer_ros PRIVATE BUILD_WITH_ROS)
     target_include_directories(rs_viewer_ros PRIVATE ${catkin_INCLUDE_DIRS} inc)
     target_link_libraries(rs_viewer_ros PRIVATE

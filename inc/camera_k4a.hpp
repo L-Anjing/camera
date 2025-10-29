@@ -83,6 +83,8 @@ public:
 
     void get_intrinsics(float &fx ,float &fy ,float &cx ,float &cy);
 
+    void record_videos(const std::string &output_path_prefix,const std::string &obj);
+
     K4a()
     {
         Installed_Count();

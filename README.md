@@ -18,7 +18,7 @@ https://blog.csdn.net/lalawinter/article/details/138968455
 
 ### 其他应有的配置
 
-包括ROS-noetic,yolov8,openCV,TensorRT,Cmake等等，小电脑应该之后会配置一下
+包括PCL,ROS-noetic,yolov8,openCV,TensorRT,Cmake等等，小电脑应该之后会配置一下
 
 ## 代码运行步骤
 
