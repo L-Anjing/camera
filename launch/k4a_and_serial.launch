@@ -1,0 +1,7 @@
+<launch>
+    <!-- K4A ROS Node -->
+    <node pkg="camera_bridge" type="k4a_detect_ros" name="k4a_detect_ros" output="screen"/>
+
+    <!-- Serial Node -->
+    <node pkg="camera_bridge" type="k4a_serial_node" name="k4a_serial_node" output="screen"/>
+</launch>

@@ -1,0 +1,21 @@
+# 相机硬件基础配置
+camera:
+  width: 1280
+  height: 720
+  fps: 30
+  mode: "default" # 相机模式，可选值："default", "infrared"
+
+# 坐标变换配置
+transform:
+  # 相机旋转矩阵 R (3x3)
+  rotation:
+    - [1.0, 0.0, 0.0]
+    - [0.0, 1.0, 0.0]
+    - [0.0, 0.0, 1.0]
+  # 平移向量 T (x, y, z) 单位：米，即相机在机器人坐标系中的位置
+  translation: [0.0, 0.0, 0.0]
+
+# 算法阈值
+params:
+  min_distance: 0.1
+  max_distance: 3.0

@@ -1,0 +1,19 @@
+# Azure Kinect SDK 相机配置文件# 坐标变换配置
+camera:
+  width: 1280
+  height: 720
+  fps: 30
+  mode: "default" # 相机模式，可选值："default", "infrared"
+transform:
+  # 相机旋转矩阵 R (3x3)
+  rotation:
+    - [1.0, 0.0, 0.0]
+    - [0.0, 1.0, 0.0]
+    - [0.0, 0.0, 1.0]
+  # 平移向量 T (x, y, z) 单位：米，即相机在机器人坐标系中的位置
+  translation: [0.175, -0.2515, 0.701]
+
+# 算法阈值
+params:
+  min_distance: 0.01
+  max_distance: 4.0

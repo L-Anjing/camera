@@ -1,0 +1,11 @@
+workspace/dataset_yolo_dete/
+workspace/dataset_yolo_seg/
+workspace/images/
+workspace/labels_json/
+workspace/masks/
+workspace/model_generate/
+workspace/model_test/
+workspace/temp_masks/
+workspace/videos/
+build/
+*.pt

@@ -1,0 +1,23 @@
+from launch import LaunchDescription
+from launch_ros.actions import Node
+
+
+def generate_launch_description():
+    return LaunchDescription([
+        Node(
+            package='camera_bridge',
+            executable='k4a_detect_ros',
+            name='k4a_detect_ros',
+            output='screen'
+        ),
+        Node(
+            package='camera_bridge',
+            executable='k4a_serial_node',
+            name='k4a_serial_node',
+            output='screen',
+            parameters=[{
+                'port': '/dev/ttyUSB0',
+                'baudrate': 115200
+            }]
+        ),
+    ])
