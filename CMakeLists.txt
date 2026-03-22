@@ -263,16 +263,6 @@ if(BUILD_WITH_ROS)
         )
     endif()
 
-    #---Serial RX Bag ROS---
-    if(BUILD_WITH_ROS1)
-        add_executable(serial_rx_bag_node src/utils/serial_rx_bag_node.cpp)
-        target_compile_definitions(serial_rx_bag_node PRIVATE BUILD_WITH_ROS BUILD_WITH_ROS1)
-        target_include_directories(serial_rx_bag_node PRIVATE ${catkin_INCLUDE_DIRS})
-        target_link_libraries(serial_rx_bag_node PRIVATE ${catkin_LIBRARIES} pthread)
-        install(TARGETS serial_rx_bag_node
-            RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-    endif()
 endif()
 
 if(BUILD_WITH_ROS2)
