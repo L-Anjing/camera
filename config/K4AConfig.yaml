@@ -15,5 +15,5 @@ transform:
 
 # 算法阈值
 params:
-  min_distance: 0.01
-  max_distance: 4.0
+  min_dist: 0.01
+  max_dist: 2.0

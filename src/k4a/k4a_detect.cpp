@@ -48,14 +48,13 @@ int main(
     try
     {
         // 初始化 - 使用绝对路径或从环境变量获取
-        std::string config_path = "/home/li/camera_ws/src/camera_bridge/config/K4AConfig.yaml";
+        std::string config_path = "/home/pi/workspace/camera_ws/src/camera_bridge/config/K4AConfig.yaml";
         K4a k4a_device = K4a::Create_FromFile(config_path);
         Yolo yolo;
         BlockRecognizer block_recognizer;
 
         std::string engine_path =
-            "/home/li/camera_ws/src/camera_bridge/workspace/model_generate/"
-            "yolo_dete_1_20/weights/best.engine";
+            "/home/pi/workspace/camera_ws/src/camera_bridge/workspace/models/260425.engine";
 
         yolo.Yolov8_Enable(engine_path);
 
@@ -197,7 +196,7 @@ int main(
 #endif
             }
 
-            // cv::imshow("Final Block", block_vis);
+            cv::imshow("Final Block", block_vis);
             // cv::imshow("depth_iamge",depth_image);
 
             // viewer->spinOnce(10);

@@ -8,6 +8,7 @@
 #include "common/yolo.hpp"
 
 #include <chrono>
+#include <thread>
 
 static const char *yolo_labels[] = {
     // TODO:Add labels

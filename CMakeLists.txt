@@ -1,99 +1,88 @@
 cmake_minimum_required(VERSION 3.10)
 project(camera_bridge)
 
+# ---- 基础环境配置 ----
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(TensorRT_ROOT "$ENV{HOME}/TensorRT-8.6.1.6" CACHE PATH "TensorRT install root")
-set(PCL_DIR "/opt/pcl-1.15/lib/cmake/pcl") 
-# 如果按照教程可以试试先注释此行，找不到在手动指定,此处源码编译pcl时使用cmake -DCMAKE_INSTALL_PREFIX=/opt/pcl-1.15 ..
-# ---- 基础依赖 ----
-find_package(realsense2 REQUIRED)
-find_package(PCL 1.15 EXACT REQUIRED)
-find_package(k4a REQUIRED)
+
+# 手动指定 TensorRT 路径 (基于你之前的安装路径)
+set(TensorRT_ROOT "/opt/TensorRT-8.6.1.6")
+set(TENSORRT_INCLUDE_DIR "${TensorRT_ROOT}/include")
+set(TENSORRT_LIB_DIR "${TensorRT_ROOT}/lib")
+
+# ---- 寻找依赖 ----
 find_package(CUDA REQUIRED)
+find_package(realsense2 REQUIRED)
+find_package(PCL REQUIRED)
+find_package(k4a REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(OpenCV REQUIRED)
 
-# ---- ROS模式选择 ----
-set(ROS_VERSION "AUTO" CACHE STRING "ROS mode: AUTO, NONE, ROS1, ROS2")
-set_property(CACHE ROS_VERSION PROPERTY STRINGS AUTO NONE ROS1 ROS2)
+# TensorRT 库查找
+find_library(TENSORRT_NVINFER_LIB nvinfer HINTS ${TENSORRT_LIB_DIR})
+find_library(TENSORRT_NVONNXPARSER_LIB nvonnxparser HINTS ${TENSORRT_LIB_DIR})
 
+# ---- ROS 模式逻辑 ----
+set(ROS_VERSION "AUTO" CACHE STRING "ROS mode: AUTO, NONE, ROS1, ROS2")
 if(ROS_VERSION STREQUAL "AUTO")
-    if(DEFINED ENV{ROS_VERSION} AND "$ENV{ROS_VERSION}" STREQUAL "1")
-        set(ROS_VERSION "ROS1")
-    elseif(DEFINED ENV{ROS_VERSION} AND "$ENV{ROS_VERSION}" STREQUAL "2")
+    if(DEFINED ENV{ROS_VERSION} AND "$ENV{ROS_VERSION}" STREQUAL "2")
         set(ROS_VERSION "ROS2")
-    elseif(DEFINED CATKIN_DEVEL_PREFIX)
+    elseif(DEFINED ENV{ROS_VERSION} AND "$ENV{ROS_VERSION}" STREQUAL "1")
         set(ROS_VERSION "ROS1")
     else()
         set(ROS_VERSION "NONE")
     endif()
 endif()
 
+# 初始化标志位
 set(BUILD_WITH_ROS OFF)
 set(BUILD_WITH_ROS1 OFF)
 set(BUILD_WITH_ROS2 OFF)
 
-if(ROS_VERSION STREQUAL "ROS1")
-    message(STATUS "🔹 Building with ROS1 support")
-    set(BUILD_WITH_ROS ON)
-    set(BUILD_WITH_ROS1 ON)
-
-    find_package(catkin REQUIRED COMPONENTS
-        roscpp
-        std_msgs
-        sensor_msgs
-        cv_bridge
-        image_transport
-        serial
-    )
-
-    catkin_package(
-        CATKIN_DEPENDS roscpp std_msgs sensor_msgs cv_bridge image_transport
-    )
-elseif(ROS_VERSION STREQUAL "ROS2")
-    message(STATUS "🔹 Building with ROS2 support")
+if(ROS_VERSION STREQUAL "ROS2")
+    message(STATUS "🔹 Building with ROS2 (Ament)")
     set(BUILD_WITH_ROS ON)
     set(BUILD_WITH_ROS2 ON)
-
     find_package(ament_cmake REQUIRED)
     find_package(rclcpp REQUIRED)
     find_package(std_msgs REQUIRED)
-
-    find_path(SERIAL_INCLUDE_DIR serial/serial.h)
-    find_library(SERIAL_LIBRARY serial)
+    find_package(sensor_msgs REQUIRED)
+    find_package(cv_bridge REQUIRED)
+    find_package(image_transport REQUIRED)
+    
+    # Serial 库处理
+    find_path(SERIAL_INCLUDE_DIR serial/serial.h
+        HINTS /home/pi/workspace/3rd_ws/install/serial/include)
+    find_library(SERIAL_LIBRARY serial
+        HINTS /home/pi/workspace/3rd_ws/install/serial/lib)
     if(NOT SERIAL_INCLUDE_DIR OR NOT SERIAL_LIBRARY)
-        message(FATAL_ERROR "ROS2 serial node requires serial library (serial/serial.h, libserial).")
+        message(FATAL_ERROR "ROS2 serial node requires serial/serial.h and libserial.so")
     endif()
-elseif(ROS_VERSION STREQUAL "NONE")
-    message(STATUS "🔸 Building without ROS support")
-else()
-    message(FATAL_ERROR "Invalid ROS_VERSION='${ROS_VERSION}'. Use AUTO/NONE/ROS1/ROS2")
+    get_filename_component(SERIAL_LIBRARY_DIR "${SERIAL_LIBRARY}" DIRECTORY)
+elseif(ROS_VERSION STREQUAL "ROS1")
+    message(STATUS "🔹 Building with ROS1 (Catkin)")
+    set(BUILD_WITH_ROS ON)
+    set(BUILD_WITH_ROS1 ON)
+    find_package(catkin REQUIRED COMPONENTS 
+        roscpp std_msgs sensor_msgs cv_bridge image_transport serial)
 endif()
 
-# ---- 包含路径 ----
+# ---- 包含与链接路径 ----
 include_directories(
-    ${PROJECT_SOURCE_DIR}/inc
+    inc
     ${OpenCV_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
-    /usr/local/cuda/include
+    ${CUDA_INCLUDE_DIRS}
     ${TENSORRT_INCLUDE_DIR}
 )
 
-if(BUILD_WITH_ROS1)
-    include_directories(${catkin_INCLUDE_DIRS})
-endif()
-
-
-# ---- 链接路径 ----
 link_directories(
     ${TENSORRT_LIB_DIR}
-    /usr/local/cuda/lib64
-    /usr/lib/x86_64-linux-gnu
+    ${CUDA_TOOLKIT_ROOT_DIR}/lib64
 )
 
-# ---- YOLO子模块 ----
+# ---- YOLO 子模块 ----
 add_subdirectory(src/yolo)
 
 # ---- 通用库定义 ----
@@ -104,171 +93,125 @@ set(COMMON_LIBS
     ${CUDA_LIBRARIES}
     yolo
     yaml-cpp
-    ffi
     ${OpenCV_LIBS}
-)
-message(STATUS "OpenCV libs: ${OpenCV_LIBS}")
-
-# ---- 通用源文件 ----
-set(COMMON_SOURCES
-    src/common/camera_params.cpp
-    src/utils/vision_draw.cpp
+    pthread
 )
 
-# ---- RealSense 源文件 ----
-set(RS_SOURCES
-    ${COMMON_SOURCES}
-    src/realsense/rs_detect.cpp
-    src/realsense/realsense.cpp
-    src/utils/myinfer.cpp
-    src/yolo/yolo.cu
-)
+# ---- 源文件定义 ----
+set(COMMON_SOURCES src/common/camera_params.cpp src/utils/vision_draw.cpp)
+set(RS_SOURCES ${COMMON_SOURCES} src/realsense/rs_detect.cpp src/realsense/realsense.cpp src/utils/myinfer.cpp src/yolo/yolo.cu)
+set(K4A_DETECT_SOURCES ${COMMON_SOURCES} src/k4a/camera_k4a.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/k4a/k4a_detect.cpp src/yolo/yolo.cu)
+set(SERIAL_NODE_SOURCES src/utils/serial.cpp)
 
-# ---- K4A 源文件 ----
-set(K4A_BASE_SOURCES
-    ${COMMON_SOURCES}
-    src/k4a/camera_k4a.cpp
-    src/utils/myinfer.cpp
-    src/utils/block_recognizer.cpp
-    src/yolo/yolo.cu
-)
-
-set(K4A_DETECT_SOURCES
-    ${K4A_BASE_SOURCES}
-    src/k4a/k4a_detect.cpp
-)
-
-set(K4A_RECORD_SOURCES
-    ${COMMON_SOURCES}
-    src/k4a/k4a_capture_videos.cpp
-    src/k4a/camera_k4a.cpp
-)
-
-set(K4A_CAPTURE_SOURCES
-    ${COMMON_SOURCES}
-    src/k4a/k4a_capture_images.cpp
-    src/k4a/camera_k4a.cpp
-)
-#---RealSense---
+# ---- 编译目标 (Non-ROS) ----
 add_executable(rs_viewer ${RS_SOURCES})
-target_link_libraries(rs_viewer PRIVATE
-    realsense2::realsense2
-    ${COMMON_LIBS}
-)
+target_link_libraries(rs_viewer PRIVATE realsense2::realsense2 ${COMMON_LIBS})
 target_compile_options(rs_viewer PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
 
-#---K4A Detect---
 add_executable(k4a_detect ${K4A_DETECT_SOURCES})
-target_link_libraries(k4a_detect PRIVATE
-    k4a::k4a
-    ${COMMON_LIBS}
-)
+target_link_libraries(k4a_detect PRIVATE k4a::k4a ${COMMON_LIBS})
 target_compile_options(k4a_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
-
-#---K4A Record Videos---
-add_executable(record_videos ${K4A_RECORD_SOURCES})
-target_link_libraries(record_videos PRIVATE
-    k4a::k4a
-    ${COMMON_LIBS}
-)
-
-#---K4A Capture Images---
-add_executable(capture_images ${K4A_CAPTURE_SOURCES})
-target_link_libraries(capture_images PRIVATE
-    k4a::k4a
-    ${COMMON_LIBS}
-)
-
-
-
-#             ROS可执行文件（仅在ROS下编译）
+# ---- 编译目标 (ROS Support) ----
 if(BUILD_WITH_ROS)
-    # ---- ROS编译定义 ----
-    set(ROS_LIBS
-        ${COMMON_LIBS}
-        pthread
-    )
+    # 1. 设置通用的编译宏
+    add_definitions(-DBUILD_WITH_ROS)
 
-    if(BUILD_WITH_ROS1)
-        list(APPEND ROS_LIBS ${catkin_LIBRARIES})
-    endif()
-
-    #---K4A Detect ROS---
+    # --- K4A ROS Node ---
     add_executable(k4a_detect_ros ${K4A_DETECT_SOURCES})
-    target_compile_definitions(k4a_detect_ros PRIVATE BUILD_WITH_ROS)
-    if(BUILD_WITH_ROS1)
+    target_compile_options(k4a_detect_ros PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+    
+    if(BUILD_WITH_ROS2)
+        target_compile_definitions(k4a_detect_ros PRIVATE BUILD_WITH_ROS2)
+        # ROS2 必须先调用依赖
+        ament_target_dependencies(k4a_detect_ros rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+        # 链接本地库和 TensorRT (去掉 PRIVATE)
+        target_link_libraries(k4a_detect_ros k4a::k4a ${COMMON_LIBS})
+    elseif(BUILD_WITH_ROS1)
         target_compile_definitions(k4a_detect_ros PRIVATE BUILD_WITH_ROS1)
         target_include_directories(k4a_detect_ros PRIVATE ${catkin_INCLUDE_DIRS})
-    elseif(BUILD_WITH_ROS2)
-        target_compile_definitions(k4a_detect_ros PRIVATE BUILD_WITH_ROS2)
-        ament_target_dependencies(k4a_detect_ros rclcpp std_msgs)
-    endif()
-    target_link_libraries(k4a_detect_ros PRIVATE
-        k4a::k4a
-        ${ROS_LIBS}
-    )
-    target_compile_options(k4a_detect_ros PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
-    if(BUILD_WITH_ROS1)
-        install(TARGETS k4a_detect_ros
-            RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-    else()
-        install(TARGETS k4a_detect_ros
-            DESTINATION lib/${PROJECT_NAME}
-        )
+        target_link_libraries(k4a_detect_ros k4a::k4a ${catkin_LIBRARIES} ${COMMON_LIBS})
     endif()
 
-    #---RealSense ROS---
+    # --- K4A Capture Images ROS2 Node ---
+    add_executable(k4a_capture_images_ros
+        src/k4a/k4a_capture_images.cpp
+        src/k4a/camera_k4a.cpp
+        ${COMMON_SOURCES}
+    )
+
+    target_compile_options(k4a_capture_images_ros PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+
+    if(BUILD_WITH_ROS2)
+        target_compile_definitions(k4a_capture_images_ros PRIVATE BUILD_WITH_ROS2)
+
+        ament_target_dependencies(k4a_capture_images_ros
+            rclcpp
+            std_msgs
+            sensor_msgs
+            cv_bridge
+            image_transport)
+
+        target_link_libraries(k4a_capture_images_ros
+            k4a::k4a
+            ${COMMON_LIBS})
+    endif()
+
+    # --- RealSense ROS Node ---
     add_executable(rs_viewer_ros ${RS_SOURCES})
-    target_compile_definitions(rs_viewer_ros PRIVATE BUILD_WITH_ROS)
-    if(BUILD_WITH_ROS1)
+    target_compile_options(rs_viewer_ros PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+    
+    if(BUILD_WITH_ROS2)
+        target_compile_definitions(rs_viewer_ros PRIVATE BUILD_WITH_ROS2)
+        ament_target_dependencies(rs_viewer_ros rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+        target_link_libraries(rs_viewer_ros realsense2::realsense2 ${COMMON_LIBS})
+    elseif(BUILD_WITH_ROS1)
         target_compile_definitions(rs_viewer_ros PRIVATE BUILD_WITH_ROS1)
         target_include_directories(rs_viewer_ros PRIVATE ${catkin_INCLUDE_DIRS})
-    elseif(BUILD_WITH_ROS2)
-        target_compile_definitions(rs_viewer_ros PRIVATE BUILD_WITH_ROS2)
-        ament_target_dependencies(rs_viewer_ros rclcpp std_msgs)
-    endif()
-    target_link_libraries(rs_viewer_ros PRIVATE
-        realsense2::realsense2
-        ${ROS_LIBS}
-    )
-    target_compile_options(rs_viewer_ros PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
-    if(BUILD_WITH_ROS1)
-        install(TARGETS rs_viewer_ros
-            RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-    else()
-        install(TARGETS rs_viewer_ros
-            DESTINATION lib/${PROJECT_NAME}
-        )
+        target_link_libraries(rs_viewer_ros realsense2::realsense2 ${catkin_LIBRARIES} ${COMMON_LIBS})
     endif()
 
-    #---Serial Bridge ROS---
-    add_executable(k4a_serial_node src/utils/serial.cpp)
-    target_compile_definitions(k4a_serial_node PRIVATE BUILD_WITH_ROS)
-    if(BUILD_WITH_ROS1)
+    # --- Serial ROS Node ---
+    add_executable(k4a_serial_node ${SERIAL_NODE_SOURCES})
+
+    if(BUILD_WITH_ROS2)
+        target_compile_definitions(k4a_serial_node PRIVATE BUILD_WITH_ROS2)
+        ament_target_dependencies(k4a_serial_node rclcpp std_msgs)
+        target_include_directories(k4a_serial_node PRIVATE ${SERIAL_INCLUDE_DIR})
+        target_link_libraries(k4a_serial_node ${SERIAL_LIBRARY})
+        set_target_properties(k4a_serial_node PROPERTIES
+            BUILD_RPATH "${SERIAL_LIBRARY_DIR}"
+            INSTALL_RPATH "${SERIAL_LIBRARY_DIR}")
+    elseif(BUILD_WITH_ROS1)
         target_compile_definitions(k4a_serial_node PRIVATE BUILD_WITH_ROS1)
         target_include_directories(k4a_serial_node PRIVATE ${catkin_INCLUDE_DIRS})
-        target_link_libraries(k4a_serial_node PRIVATE ${catkin_LIBRARIES} pthread)
-        install(TARGETS k4a_serial_node
-            RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-        )
-    elseif(BUILD_WITH_ROS2)
-        target_compile_definitions(k4a_serial_node PRIVATE BUILD_WITH_ROS2)
-        target_include_directories(k4a_serial_node PRIVATE ${SERIAL_INCLUDE_DIR})
-        target_link_libraries(k4a_serial_node PRIVATE ${SERIAL_LIBRARY} pthread)
-        ament_target_dependencies(k4a_serial_node rclcpp std_msgs)
-        install(TARGETS k4a_serial_node
-            DESTINATION lib/${PROJECT_NAME}
-        )
+        target_link_libraries(k4a_serial_node ${catkin_LIBRARIES})
+    endif()
+
+    # ---- 核心修正：ROS2 安装逻辑 ----
+    if(BUILD_WITH_ROS2)
+        # 安装可执行程序到 lib/<package_name> (ROS2 标准)
+        install(TARGETS
+        k4a_detect_ros
+        rs_viewer_ros
+        k4a_serial_node
+        k4a_capture_images_ros
+        DESTINATION lib/${PROJECT_NAME})
+
+        # 安装 Launch 文件夹 (确保目录下有 launch/ 文件夹)
+        install(DIRECTORY launch
+            DESTINATION share/${PROJECT_NAME})
+
+        # 导出依赖到 ament 索引 (解决找不到包的关键)
+        ament_export_dependencies(rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+        ament_export_include_directories(inc)
+        ament_export_libraries(yolo) # 如果想让别的包调 yolo 库
     endif()
 
 endif()
 
+# ---- 结尾处理 ----
 if(BUILD_WITH_ROS2)
-    install(DIRECTORY launch/
-        DESTINATION share/${PROJECT_NAME}/launch
-        FILES_MATCHING PATTERN "*.launch.py"
-    )
+    # 必须放在最后
     ament_package()
 endif()

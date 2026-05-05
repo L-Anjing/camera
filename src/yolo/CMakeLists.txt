@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(cuda)
 
 if(NOT DEFINED TensorRT_ROOT)
-    set(TensorRT_ROOT "$ENV{HOME}/TensorRT-8.6.1.6" CACHE PATH "TensorRT install root")
+    set(TensorRT_ROOT "/opt/TensorRT-8.6.1.6" CACHE PATH "TensorRT install root")
 endif()
 
 set(TENSORRT_LIB_DIR "${TensorRT_ROOT}/lib")

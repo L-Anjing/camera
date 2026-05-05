@@ -59,14 +59,18 @@ git clone https://github.com/L-Anjing/camera camera_bridge
 
 ### 3. Install Dependencies
 Refer to `requirement.md` and install each dependency according to the official documentation or Notion notes.
-
+#### Note:  
+CUDA ,CUDNN and TensorRT must be *Version Adaptation* 
 ## Configuration
 
 ### TensorRT Path Setup
 The default TensorRT path is `$ENV{HOME}/TensorRT-8.6.1.6`. 
 Eidt CmakeLists.txt file in 
 ```
-set(TensorRT_ROOT "$HOME/TensorRT-8.6.1.6")
+# 手动指定 TensorRT 路径 (基于你之前的安装路径)
+set(TensorRT_ROOT "/opt/TensorRT-8.6.1.6")
+set(TENSORRT_INCLUDE_DIR "${TensorRT_ROOT}/include")
+set(TENSORRT_LIB_DIR "${TensorRT_ROOT}/lib")
 ```
 
 ### Camera Configuration
@@ -96,7 +100,7 @@ cd ~/camera_ws/src/camera_bridge
 ### ROS2 Build
 
 ```bash
-source /opt/ros/<your_ros2_distro>/setup.bash
+source /opt/ros/humble/setup.bash
 cd ~/camera_ws/src/camera_bridge
 ./build.sh ROS2
 ```
@@ -105,13 +109,13 @@ If you use ROS2 workspace tools (`colcon`), build from workspace root:
 
 ```bash
 cd ~/camera_ws
-source /opt/ros/<your_ros2_distro>/setup.bash
+source /opt/ros/humble/setup.bash
 colcon build --packages-select camera_bridge
 ```
 
 `build.sh` supports only two arguments:
 - `./build.sh ROS1`
-- `./build.sh ROS2`
+- `./build.sh ROS2` 
 
 ## Usage
 

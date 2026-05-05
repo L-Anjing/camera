@@ -7,9 +7,10 @@
 
 int main()
 {
-    K4a k4a_device = K4a::Create_FromFile("config/AzureKinectSDKConfig.yaml");
 
-    k4a_device.capture_images("/home/li/camera_ws/src/camera_bridge/workspace/images","add"); // 手动拍摄
+    K4a k4a_device = K4a::Create_FromFile("/home/pi/workspace/camera_ws/src/camera_bridge/config/K4AConfig.yaml");
+
+    k4a_device.capture_images("/home/pi/workspace/camera_ws/src/camera_bridge/workspace/images","new_Real_8+"); // 手动拍摄
 
 
     return 0;
