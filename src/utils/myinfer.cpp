@@ -128,7 +128,7 @@ void Yolo::Single_Inference(cv::Mat &image, yolo::BoxArray &objs_out)
   auto Duration = std::chrono::duration_cast<std::chrono::microseconds>(End - Start);
 
   // 调试输出
-#define DEBUG_YOLO 1 // 可通过注释本行禁用所有调试信息
+// #define DEBUG_YOLO 1 // 可通过注释本行禁用所有调试信息
 #ifdef DEBUG_YOLO
   std::cout << "Infer Duration: " << double(Duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den << "s" << std::endl;
   std::cout << "Number of detections: " << objs.size() << std::endl;

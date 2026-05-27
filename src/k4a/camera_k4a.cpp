@@ -136,19 +136,63 @@ void K4a::Configuration()
 /*get image from device and convert to cv::Mat
 cv::Mat 是 OpenCV 库定义和优化的“通用矩阵”数据结构，它是整个 OpenCV 图像处理生态系统的“官方语言”
 */
-void K4a::Image_to_Cv(cv::Mat &image_cv_color, cv::Mat &image_cv_depth)
-{
-    if (device.get_capture(&capture, chrono::milliseconds(1000)))
-    {
-        image_k4a_color = capture.get_color_image();
-        image_k4a_depth = capture.get_depth_image();
-        image_k4a_depth_to_color = k4aTransformation.depth_image_to_color_camera(image_k4a_depth);
-        image_cv_color = cv::Mat(image_k4a_color.get_height_pixels(), image_k4a_color.get_width_pixels(), CV_8UC4, image_k4a_color.get_buffer());
-        cv::cvtColor(image_cv_color, image_cv_color, cv::COLOR_BGRA2BGR);
+// void K4a::Image_to_Cv(cv::Mat &image_cv_color, cv::Mat &image_cv_depth)
+// {
+//     if (device.get_capture(&capture, chrono::milliseconds(1000)))
+//     {
+//         image_k4a_color = capture.get_color_image();
+//         image_k4a_depth = capture.get_depth_image();
+//         image_k4a_depth_to_color = k4aTransformation.depth_image_to_color_camera(image_k4a_depth);
+//         image_cv_color = cv::Mat(image_k4a_color.get_height_pixels(), image_k4a_color.get_width_pixels(), CV_8UC4, image_k4a_color.get_buffer());
+//         cv::cvtColor(image_cv_color, image_cv_color, cv::COLOR_BGRA2BGR);
 
-        image_cv_depth = cv::Mat(image_k4a_depth_to_color.get_height_pixels(), image_k4a_depth_to_color.get_width_pixels(), CV_16U, image_k4a_depth_to_color.get_buffer());
-        // image_cv_depth.convertTo(image_cv_depth, CV_8U);
+//         image_cv_depth = cv::Mat(image_k4a_depth_to_color.get_height_pixels(), image_k4a_depth_to_color.get_width_pixels(), CV_16U, image_k4a_depth_to_color.get_buffer());
+//         // image_cv_depth.convertTo(image_cv_depth, CV_8U);
+//     }
+// }
+void K4a::Image_to_Cv(
+    cv::Mat &image_cv_color,
+    cv::Mat &image_cv_depth)
+{
+    k4a::capture capture;
+
+    if (!device.get_capture(&capture,
+        std::chrono::milliseconds(1000)))
+    {
+        return;
     }
+
+    auto image_k4a_color =
+        capture.get_color_image();
+
+    auto image_k4a_depth =
+        capture.get_depth_image();
+
+    auto image_k4a_depth_to_color =
+        k4aTransformation.depth_image_to_color_camera(
+            image_k4a_depth);
+
+    cv::Mat color_tmp(
+        image_k4a_color.get_height_pixels(),
+        image_k4a_color.get_width_pixels(),
+        CV_8UC4,
+        image_k4a_color.get_buffer());
+
+    cv::cvtColor(
+        color_tmp,
+        image_cv_color,
+        cv::COLOR_BGRA2BGR);
+
+    image_cv_color =
+        image_cv_color.clone();
+
+    image_cv_depth =
+        cv::Mat(
+            image_k4a_depth_to_color.get_height_pixels(),
+            image_k4a_depth_to_color.get_width_pixels(),
+            CV_16U,
+            image_k4a_depth_to_color.get_buffer()
+        ).clone();
 }
 // get color image from device and convert to cv::Mat
 void K4a::Color_to_Cv(cv::Mat &image_cv_color)

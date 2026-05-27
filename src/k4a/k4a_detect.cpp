@@ -72,7 +72,6 @@ int main(
         // viewer->setBackgroundColor(0, 0, 0);
         // viewer->addCoordinateSystem(0.2);
 
-        // bool first_cloud = true;
         int frame_id = 0;
 
         while (!stop_flag)
@@ -82,7 +81,11 @@ int main(
 
             k4a_device.Image_to_Cv(color_image, depth_image);
             if (color_image.empty() || depth_image.empty())
+            {
+                std::cerr << "get_capture timeout" << std::endl;
                 continue;
+            }
+               
 
             cv::cvtColor(color_image, gray, cv::COLOR_BGR2GRAY);
             cv::cvtColor(gray, gray3, cv::COLOR_GRAY2BGR);
@@ -91,15 +94,15 @@ int main(
             yolo.Single_Inference(gray3, detections);
 
             // YOLO Debug 显示
-            cv::Mat yolo_vis = color_image.clone();
-            vision::draw_yolo_detections(yolo_vis, detections);
-            cv::imshow("YOLO Debug", yolo_vis);
+            // cv::Mat yolo_vis = color_image.clone();
+            // vision::draw_yolo_detections(yolo_vis, detections);
+            // cv::imshow("YOLO Debug", yolo_vis);
 
             // Block 融合 - 返回所有检测到的blocks 结构体容器，包含多个结构体对象
             FinalBlockResults blocks_patterns = block_recognizer.recognize(detections);
 
             // 显示 Final Block 窗口
-            cv::Mat block_vis = color_image.clone();
+            // cv::Mat block_vis = color_image.clone();
 
             // 处理所有检测到的blocks
             if (!blocks_patterns.empty())
@@ -107,23 +110,23 @@ int main(
                 for (const auto &results : blocks_patterns)
                 {
                     // 绘制融合结果
-                    vision::draw_block_result(block_vis, results);
+                    // vision::draw_block_result(block_vis, results);
 
                     // 3D 计算
                     BoundingBox3D bbox =
                         k4a_device.Value_Block_to_Pcl(cloud, depth_image, results);
                     const char *class_name = block_class_name(results.block_class);
 
-                    if (frame_id++ % 5 == 0 )
-                    {
-                        std::cout << "Block Class: " << class_name
-                                  << " Confidence: " << results.confidence
-                                  << " Center: ["
-                                  << bbox.center.x << ", "
-                                  << bbox.center.y << ", "
-                                  << bbox.center.z << ", "
-                                  << bbox.principal_dir[0] << "]\n";
-                    }
+                    // if (frame_id++ % 5 == 0 )
+                    // {
+                    //     std::cout << "Block Class: " << class_name
+                    //               << " Confidence: " << results.confidence
+                    //               << " Center: ["
+                    //               << bbox.center.x << ", "
+                    //               << bbox.center.y << ", "
+                    //               << bbox.center.z << ", "
+                    //               << bbox.principal_dir[0] << "]\n";
+                    // }
 #if defined(BUILD_WITH_ROS1)
 
                     std_msgs::String msg;
@@ -196,7 +199,7 @@ int main(
 #endif
             }
 
-            cv::imshow("Final Block", block_vis);
+            // cv::imshow("Final Block", block_vis);
             // cv::imshow("depth_iamge",depth_image);
 
             // viewer->spinOnce(10);

@@ -4,7 +4,7 @@
   <name>camera_bridge</name>
   <version>0.0.1</version>
   <description>K4A camera bridge with ROS2 support</description>
-  <maintainer email="li@example.com">li</maintainer>
+  <maintainer email="li15933001767@163.com">li</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

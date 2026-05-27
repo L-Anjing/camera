@@ -16,7 +16,7 @@ def generate_launch_description():
             name='k4a_serial_node',
             output='screen',
             parameters=[{
-                'port': '/dev/ttyUSB0',
+                'port': '/dev/azurekinect',
                 'baudrate': 115200
             }]
         ),
