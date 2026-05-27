@@ -127,13 +127,9 @@ void Insight9::Initialize_ROS2_Subscribers(std::shared_ptr<rclcpp::Node> node)
     depth_sub_ = node_->create_subscription<sensor_msgs::msg::Image>(
         "/camera/camera/depth/image_rect_raw", 10, depth_cb);
 
-    // 订阅原始彩色图（无损，高质量）
-    color_sub_ = node_->create_subscription<sensor_msgs::msg::Image>(
-        "/camera/camera/color/image_rect_raw", 10, color_cb);
-
-    // 备选：压缩彩色图（如果需要省带宽）
-    // compressed_color_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
-    //     "/camera/camera/color/image_rect_raw/compressed", 10, compressed_color_cb);
+    // 订阅压缩彩色图（Insight9仅提供JPEG，无原始格式）
+    compressed_color_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
+        "/camera/camera/color/image_rect_raw/compressed", 10, compressed_color_cb);
 
     // 订阅相机标定信息（可选，用于自动更新内参）
     color_camera_info_sub_ = node_->create_subscription<sensor_msgs::msg::CameraInfo>(
@@ -247,6 +243,21 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
     int depth_top = static_cast<int>(obj.top * scale_y);
     int depth_bottom = static_cast<int>(obj.bottom * scale_y);
 
+    // Debug: 打印框信息（仅一次）
+    static bool debug_printed = false;
+    if (!debug_printed)
+    {
+        COUT_BLUE_START;
+        std::cout << "[DEBUG] Detection Box - "
+                  << "Color: [" << obj.left << "," << obj.top << "-" 
+                  << obj.right << "," << obj.bottom << "] "
+                  << "Depth: [" << depth_left << "," << depth_top << "-"
+                  << depth_right << "," << depth_bottom << "] "
+                  << "Scale: (" << scale_x << ", " << scale_y << ")" << std::endl;
+        COUT_COLOR_END;
+        debug_printed = true;
+    }
+
     // 遍历检测框内的所有像素
     for (int py = depth_top; py < depth_bottom; ++py)
     {
@@ -292,6 +303,11 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
 
     if (valid_points == 0)
     {
+        COUT_RED_START;
+        std::cout << "[WARNING] No valid depth points in detection box "
+                  << "(" << depth_left << "," << depth_top << "-"
+                  << depth_right << "," << depth_bottom << ")" << std::endl;
+        COUT_COLOR_END;
         return bbox;
     }
 
@@ -303,6 +319,13 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
     bbox.center.x /= valid_points;
     bbox.center.y /= valid_points;
     bbox.center.z /= valid_points;
+
+    // Debug: 打印点云统计
+    COUT_BLUE_START;
+    std::cout << "[DEBUG] Valid points: " << valid_points << " | "
+              << "Camera coords: [" << bbox.center.x << ", " 
+              << bbox.center.y << ", " << bbox.center.z << "]" << std::endl;
+    COUT_COLOR_END;
 
     // 坐标变换：从相机坐标系到机器人坐标系
     float Xc = bbox.center.x;
@@ -316,6 +339,12 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
     bbox.center.x = robot_posi.x();
     bbox.center.y = robot_posi.y();
     bbox.center.z = robot_posi.z();
+
+    // Debug: 打印变换后的坐标
+    COUT_BLUE_START;
+    std::cout << "[DEBUG] Robot coords: [" << bbox.center.x << ", " 
+              << bbox.center.y << ", " << bbox.center.z << "]" << std::endl;
+    COUT_COLOR_END;
 
     // 计算偏角（弧度制）
     float yaw = atan2(bbox.center.y, bbox.center.x);     // 水平偏角
