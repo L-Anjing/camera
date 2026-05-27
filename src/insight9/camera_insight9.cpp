@@ -47,7 +47,7 @@ Insight9 Insight9::Create_FromFile(const std::string& config_path,
         camera.Initialize_ROS2_Subscribers(node);
     }
 
-    return camera;
+    return std::move(camera);
 }
 
 // 初始化 ROS2 订阅
@@ -113,10 +113,10 @@ void Insight9::Initialize_ROS2_Subscribers(std::shared_ptr<rclcpp::Node> node)
     // 相机标定信息回调
     auto color_info_cb = [this](const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
         // 从camera_info自动更新内参
-        color_intrinsics_.fx = msg->K[0];
-        color_intrinsics_.fy = msg->K[4];
-        color_intrinsics_.cx = msg->K[2];
-        color_intrinsics_.cy = msg->K[5];
+        color_intrinsics_.fx = msg->k[0];
+        color_intrinsics_.fy = msg->k[4];
+        color_intrinsics_.cx = msg->k[2];
+        color_intrinsics_.cy = msg->k[5];
         
         COUT_BLUE_START;
         cout << "Color Camera Info Updated: fx=" << color_intrinsics_.fx 
@@ -143,10 +143,10 @@ void Insight9::Initialize_ROS2_Subscribers(std::shared_ptr<rclcpp::Node> node)
     depth_camera_info_sub_ = node_->create_subscription<sensor_msgs::msg::CameraInfo>(
         "/camera/camera/depth/camera_info", 1,
         [this](const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
-            depth_intrinsics_.fx = msg->K[0];
-            depth_intrinsics_.fy = msg->K[4];
-            depth_intrinsics_.cx = msg->K[2];
-            depth_intrinsics_.cy = msg->K[5];
+            depth_intrinsics_.fx = msg->k[0];
+            depth_intrinsics_.fy = msg->k[4];
+            depth_intrinsics_.cx = msg->k[2];
+            depth_intrinsics_.cy = msg->k[5];
         });
 
     COUT_BLUE_START;
