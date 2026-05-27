@@ -9,15 +9,7 @@ using namespace std;
 // 私有构造函数
 Insight9::Insight9(const CameraParams& params) : m_params(params)
 {
-    // 从配置文件中的相机内参初始化
-    // 这里需要根据实际的相机参数设置
-    // 深度相机和彩色相机可能有不同的内参
-    color_intrinsics_.fx = 385.0f;  // 示例值，需要根据实际相机标定
-    color_intrinsics_.fy = 385.0f;
-    color_intrinsics_.cx = 320.0f;
-    color_intrinsics_.cy = 240.0f;
-
-    depth_intrinsics_ = color_intrinsics_;  // 假设对齐到彩色相机
+    // 内参将从ROS2 camera_info话题自动更新，此处不需要硬编码
 
     // 从config初始化分辨率
     color_width_ = m_params.color_width;
@@ -32,6 +24,7 @@ Insight9::Insight9(const CameraParams& params) : m_params(params)
     cout << "  FPS: " << m_params.fps << endl;
     cout << "  Min Distance: " << m_params.min_dist << " m" << endl;
     cout << "  Max Distance: " << m_params.max_dist << " m" << endl;
+    cout << "  (Camera intrinsics will be loaded from ROS2 camera_info topics)" << endl;
     COUT_COLOR_END;
 }
 
@@ -40,7 +33,7 @@ std::unique_ptr<Insight9> Insight9::Create_FromFile(const std::string& config_pa
                                    std::shared_ptr<rclcpp::Node> node)
 {
     CameraParams params = CameraParams::LoadFromFile(config_path);
-    auto camera = std::make_unique<Insight9>(params);
+    std::unique_ptr<Insight9> camera(new Insight9(params));
 
     if (node)
     {
