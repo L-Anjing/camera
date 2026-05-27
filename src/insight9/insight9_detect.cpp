@@ -26,11 +26,9 @@ int main(int argc, char **argv)
 
     try
     {
-        // ======================== 调试显示开关（主线程安全） ========================
-        // 设置为 true 以启用 OpenCV/PCL 可视化（必须在主线程调用）
+        // 调试显示开关（主线程安全）
         const bool ENABLE_DEBUG_DISPLAY = false;
         const bool ENABLE_PCL_VIEWER = false;
-        // =========================================================================
 
         // 初始化 - 使用绝对路径或从环境变量获取
         std::string config_path = "/home/pi/workspace/camera_ws/src/camera_bridge/config/Insight9Config.yaml";
@@ -54,8 +52,7 @@ int main(int argc, char **argv)
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(
             new pcl::PointCloud<pcl::PointXYZ>);
         
-        // ======================== PCL 点云显示（主线程安全） ========================
-        // 仅在 ENABLE_PCL_VIEWER=true 且主线程中调用 spinOnce()
+        // PCL 点云显示初始化
         bool first_cloud = true;
         pcl::visualization::PCLVisualizer::Ptr viewer;
         if (ENABLE_PCL_VIEWER)
@@ -64,7 +61,6 @@ int main(int argc, char **argv)
             viewer->setBackgroundColor(0, 0, 0);
             viewer->addCoordinateSystem(0.2);
         }
-        // =========================================================================
 
         int frame_id = 0;
         int timeout_count = 0;
@@ -118,33 +114,34 @@ int main(int argc, char **argv)
             // YOLO 推理
             yolo.Single_Inference(gray3, detections);
 
-            // ============ YOLO Debug 显示（主线程，线程安全） ============
+            // YOLO Debug 显示（主线程安全）
             if (ENABLE_DEBUG_DISPLAY)
             {
                 cv::Mat yolo_vis = color_image.clone();
                 vision::draw_yolo_detections(yolo_vis, detections);
                 cv::imshow("YOLO Detection", yolo_vis);
             }
-            // ===========================================================
 
-            // Block 融合 - 返回所有检测到的blocks结构体容器
+            // Block 融合
             FinalBlockResults blocks_patterns = block_recognizer.recognize(detections);
 
-            // ============ Block 融合结果显示初始化（主线程安全） ============
+            // Block 结果显示初始化
             cv::Mat block_vis;
             if (ENABLE_DEBUG_DISPLAY)
             {
                 block_vis = color_image.clone();
             }
-            // ===========================================================
 
             // 处理所有检测到的blocks
             if (!blocks_patterns.empty())
             {
                 for (const auto &results : blocks_patterns)
                 {
-                    // 绘制融合结果（注释）
-                    // vision::draw_block_result(block_vis, results);
+                    // 绘制融合结果
+                    if (ENABLE_DEBUG_DISPLAY)
+                    {
+                        vision::draw_block_result(block_vis, results);
+                    }
 
                     // 3D 计算
                     BoundingBox3D bbox =
@@ -161,7 +158,7 @@ int main(int argc, char **argv)
                     msg.data = ss.str();
                     target_pub->publish(msg);
 
-                    // 可选：打印调试信息（每5帧打印一次）
+                    // 调试输出（每5帧）
                     if (frame_id % 5 == 0)
                     {
                         COUT_GREEN_START;
@@ -175,7 +172,7 @@ int main(int argc, char **argv)
                         COUT_COLOR_END;
                     }
 
-                    // ============ PCL 点云显示（主线程，线程安全） ============
+                    // PCL 点云显示
                     if (ENABLE_PCL_VIEWER && viewer)
                     {
                         if (first_cloud)
@@ -190,12 +187,11 @@ int main(int argc, char **argv)
                             viewer->addPointCloud<pcl::PointXYZ>(cloud, "target_cloud");
                         }
                     }
-                    // ===========================================================
                 }
             }
             else
             {
-                // 当没有检测到任何 block 时，发布占位消息
+                // 无检测时发布占位消息
                 std_msgs::msg::String msg;
                 std::stringstream ss;
                 ss << 0 << ","   // cls_ID (UNKNOWN)
@@ -207,14 +203,12 @@ int main(int argc, char **argv)
                 target_pub->publish(msg);
             }
 
-            // ============ OpenCV 调试窗口显示（主线程，线程安全） ============
+            // OpenCV 调试窗口显示
             if (ENABLE_DEBUG_DISPLAY)
             {
-                // 深度图归一化显示
                 cv::Mat depth_display;
                 cv::normalize(depth_image, depth_display, 0, 255, cv::NORM_MINMAX, CV_8UC1);
                 
-                cv::imshow("Insight9 Color", color_image);
                 cv::imshow("Insight9 Depth", depth_display);
                 if (!block_vis.empty())
                 {
@@ -222,49 +216,45 @@ int main(int argc, char **argv)
                 }
             }
             
-            // ============ PCL 点云主线程更新（线程安全） ============
+            // PCL 点云主线程更新
             if (ENABLE_PCL_VIEWER && viewer)
             {
-                viewer->spinOnce(1);  // 仅在主线程调用
+                viewer->spinOnce(1);
                 if (viewer->wasStopped())
                 {
-                    break;  // 窗口关闭时退出
+                    break;
                 }
             }
-            // ===========================================================
 
             frame_id++;
 
-            // ============ OpenCV 按键处理（仅当启用显示时） ============
+            // 按键处理
             if (ENABLE_DEBUG_DISPLAY)
             {
                 int key = cv::waitKey(10);
-                if (key == 'q' || key == 27)  // q 或 Esc 退出
+                if (key == 'q' || key == 27)
                 {
                     break;
                 }
             }
             else
             {
-                // 不显示时也检查Ctrl+C信号
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
             }
-            // ===========================================================
 
             rclcpp::spin_some(node);
         }
 
-        // ======================== 清理GUI资源（主线程安全） ========================
+        // 清理 GUI 资源
         if (ENABLE_DEBUG_DISPLAY)
         {
-            cv::destroyAllWindows();  // 关闭所有OpenCV窗口
+            cv::destroyAllWindows();
         }
         
         if (ENABLE_PCL_VIEWER && viewer)
         {
-            viewer->close();  // 关闭PCL窗口
+            viewer->close();
         }
-        // =========================================================================
 
         rclcpp::shutdown();
 

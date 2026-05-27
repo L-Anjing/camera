@@ -127,13 +127,13 @@ void Insight9::Initialize_ROS2_Subscribers(std::shared_ptr<rclcpp::Node> node)
     depth_sub_ = node_->create_subscription<sensor_msgs::msg::Image>(
         "/camera/camera/depth/image_rect_raw", 10, depth_cb);
 
-    // 优先订阅压缩彩色图（节省带宽）
-    compressed_color_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
-        "/camera/camera/color/image_rect_raw/compressed", 10, compressed_color_cb);
+    // 订阅原始彩色图（无损，高质量）
+    color_sub_ = node_->create_subscription<sensor_msgs::msg::Image>(
+        "/camera/camera/color/image_rect_raw", 10, color_cb);
 
-    // 备选：订阅原始彩色图（如果压缩不可用）
-    // color_sub_ = node_->create_subscription<sensor_msgs::msg::Image>(
-    //     "/camera/camera/color/image_rect_raw", 10, color_cb);
+    // 备选：压缩彩色图（如果需要省带宽）
+    // compressed_color_sub_ = node_->create_subscription<sensor_msgs::msg::CompressedImage>(
+    //     "/camera/camera/color/image_rect_raw/compressed", 10, compressed_color_cb);
 
     // 订阅相机标定信息（可选，用于自动更新内参）
     color_camera_info_sub_ = node_->create_subscription<sensor_msgs::msg::CameraInfo>(
