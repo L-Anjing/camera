@@ -100,14 +100,25 @@ int main(int argc, char **argv)
             // YOLO 推理
             yolo.Single_Inference(gray3, detections);
 
+            // YOLO Debug 显示 (可选，取消注释启用)
+            cv::Mat yolo_vis = color_image.clone();
+            vision::draw_yolo_detections(yolo_vis, detections);
+            cv::imshow("YOLO Debug", yolo_vis);
+
             // Block 融合 - 返回所有检测到的blocks结构体容器
             FinalBlockResults blocks_patterns = block_recognizer.recognize(detections);
+
+            // Final Block 显示窗口 (可选，取消注释启用)
+            cv::Mat block_vis = color_image.clone();
 
             // 处理所有检测到的blocks
             if (!blocks_patterns.empty())
             {
                 for (const auto &results : blocks_patterns)
                 {
+                    // 绘制融合结果 (可选)
+                    // vision::draw_block_result(block_vis, results);
+
                     // 3D 计算
                     BoundingBox3D bbox =
                         insight9_device->Value_Block_to_Pcl(cloud, depth_image, results);
@@ -152,9 +163,12 @@ int main(int argc, char **argv)
                 target_pub->publish(msg);
             }
 
+            // 显示调试窗口 (可选，取消注释启用)
+            cv::imshow("Block Detection", block_vis);
+
             frame_id++;
 
-            // 按键控制
+            // 按键控制 (q: 退出, Esc: 退出)
             char key = (char)cv::waitKey(10);
             if (key == 'q' || key == 27)
                 break;

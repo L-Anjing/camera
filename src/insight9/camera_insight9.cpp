@@ -105,16 +105,22 @@ void Insight9::Initialize_ROS2_Subscribers(std::shared_ptr<rclcpp::Node> node)
 
     // 相机标定信息回调
     auto color_info_cb = [this](const sensor_msgs::msg::CameraInfo::SharedPtr msg) {
-        // 从camera_info自动更新内参
+        // 从camera_info自动更新内参（仅第一次打印）
         color_intrinsics_.fx = msg->k[0];
         color_intrinsics_.fy = msg->k[4];
         color_intrinsics_.cx = msg->k[2];
         color_intrinsics_.cy = msg->k[5];
         
-        COUT_BLUE_START;
-        cout << "Color Camera Info Updated: fx=" << color_intrinsics_.fx 
-             << " fy=" << color_intrinsics_.fy << endl;
-        COUT_COLOR_END;
+        if (!color_intrinsics_initialized_)
+        {
+            color_intrinsics_initialized_ = true;
+            COUT_BLUE_START;
+            cout << "Color Camera Intrinsics Loaded: fx=" << color_intrinsics_.fx 
+                 << " fy=" << color_intrinsics_.fy 
+                 << " cx=" << color_intrinsics_.cx
+                 << " cy=" << color_intrinsics_.cy << endl;
+            COUT_COLOR_END;
+        }
     };
 
     // 订阅深度图（总是存在）
@@ -140,6 +146,15 @@ void Insight9::Initialize_ROS2_Subscribers(std::shared_ptr<rclcpp::Node> node)
             depth_intrinsics_.fy = msg->k[4];
             depth_intrinsics_.cx = msg->k[2];
             depth_intrinsics_.cy = msg->k[5];
+            
+            if (!depth_intrinsics_initialized_)
+            {
+                depth_intrinsics_initialized_ = true;
+                COUT_BLUE_START;
+                cout << "Depth Camera Intrinsics Loaded: fx=" << depth_intrinsics_.fx 
+                     << " fy=" << depth_intrinsics_.fy << endl;
+                COUT_COLOR_END;
+            }
         });
 
     COUT_BLUE_START;

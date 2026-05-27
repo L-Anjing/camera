@@ -80,6 +80,10 @@ private:
     // 数据有效标志
     bool color_available_ = false;
     bool depth_available_ = false;
+    
+    // 内参初始化标志（防止重复打印）
+    bool color_intrinsics_initialized_ = false;
+    bool depth_intrinsics_initialized_ = false;
 
     // 相机参数
     CameraParams m_params;
