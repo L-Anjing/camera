@@ -1,0 +1,24 @@
+# Insight9 Camera Configuration
+# 坐标变换配置
+
+camera:
+  width: 640          # 深度图分辨率
+  height: 544
+  color_width: 1920   # 彩色图分辨率
+  color_height: 1088
+  fps: 30
+  mode: "default"
+
+transform:
+  # 相机旋转矩阵 R (3x3)
+  rotation:
+    - [1.0, 0.0, 0.0]
+    - [0.0, 1.0, 0.0]
+    - [0.0, 0.0, 1.0]
+  # 平移向量 T (x, y, z) 单位：米
+  translation: [0.0, 0.0, 0.0]
+
+# 算法阈值
+params:
+  min_dist: 0.1
+  max_dist: 2.0

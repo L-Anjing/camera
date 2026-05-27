@@ -12,7 +12,8 @@ enum class CameraMode
 
 struct CameraParams
 {
-    int width, height, fps;                // 相机分辨率和帧率
+    int width, height, fps;                // 相机分辨率和帧率（含义因相机而异）
+    int color_width, color_height;         // 彩色图分辨率（Insight9使用）
     CameraMode mode = CameraMode::DEFAULT; // 相机模式
     Eigen::Matrix3f rotation;              // 3x3 旋转矩阵
     Eigen::Vector3f translation;           // 3x1 平移向量.即相机坐标系到机器人坐标系的平移

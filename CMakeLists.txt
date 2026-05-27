@@ -101,6 +101,7 @@ set(COMMON_LIBS
 set(COMMON_SOURCES src/common/camera_params.cpp src/utils/vision_draw.cpp)
 set(RS_SOURCES ${COMMON_SOURCES} src/realsense/rs_detect.cpp src/realsense/realsense.cpp src/utils/myinfer.cpp src/yolo/yolo.cu)
 set(K4A_DETECT_SOURCES ${COMMON_SOURCES} src/k4a/camera_k4a.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/k4a/k4a_detect.cpp src/yolo/yolo.cu)
+set(INSIGHT9_DETECT_SOURCES ${COMMON_SOURCES} src/insight9/camera_insight9.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/insight9/insight9_detect.cpp src/yolo/yolo.cu)
 set(SERIAL_NODE_SOURCES src/utils/serial.cpp)
 
 # ---- 编译目标 (Non-ROS) ----
@@ -131,6 +132,12 @@ if(BUILD_WITH_ROS)
         target_include_directories(k4a_detect_ros PRIVATE ${catkin_INCLUDE_DIRS})
         target_link_libraries(k4a_detect_ros k4a::k4a ${catkin_LIBRARIES} ${COMMON_LIBS})
     endif()
+
+    # --- Insight9 ROS Node ---
+    add_executable(insight9_detect_ros ${INSIGHT9_DETECT_SOURCES})
+    target_compile_options(insight9_detect_ros PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+    ament_target_dependencies(insight9_detect_ros rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+    target_link_libraries(insight9_detect_ros ${COMMON_LIBS})
 
     # --- K4A Capture Images ROS2 Node ---
     add_executable(k4a_capture_images_ros
@@ -193,6 +200,7 @@ if(BUILD_WITH_ROS)
         # 安装可执行程序到 lib/<package_name> (ROS2 标准)
         install(TARGETS
         k4a_detect_ros
+        insight9_detect_ros
         rs_viewer_ros
         k4a_serial_node
         k4a_capture_images_ros
