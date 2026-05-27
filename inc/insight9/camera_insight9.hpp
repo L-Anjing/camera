@@ -89,12 +89,12 @@ private:
 
 public:
     // 工厂函数：通过配置文件路径创建
-    static Insight9 Create_FromFile(const std::string& config_path,
+    static std::unique_ptr<Insight9> Create_FromFile(const std::string& config_path,
                                     std::shared_ptr<rclcpp::Node> node);
 
-    // 移动语义
-    Insight9(Insight9&& other) noexcept = default;
-    Insight9& operator=(Insight9&& other) noexcept = default;
+    // 禁用移动和复制
+    Insight9(Insight9&& other) noexcept = delete;
+    Insight9& operator=(Insight9&& other) noexcept = delete;
     
     // 禁用复制
     Insight9(const Insight9&) = delete;

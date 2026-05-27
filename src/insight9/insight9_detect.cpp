@@ -30,7 +30,7 @@ int main(int argc, char **argv)
         std::string config_path = "/home/pi/workspace/camera_ws/src/camera_bridge/config/Insight9Config.yaml";
         
         // 创建Insight9相机对象
-        Insight9 insight9_device = Insight9::Create_FromFile(config_path, node);
+        auto insight9_device = Insight9::Create_FromFile(config_path, node);
 
         Yolo yolo;
         BlockRecognizer block_recognizer;
@@ -60,7 +60,7 @@ int main(int argc, char **argv)
             cv::Mat gray, gray3;
 
             // 尝试获取图像，超时则continue
-            if (!insight9_device.Image_to_Cv(color_image, depth_image))
+            if (!insight9_device->Image_to_Cv(color_image, depth_image))
             {
                 timeout_count++;
                 if (timeout_count % 10 == 0)
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
                 {
                     // 3D 计算
                     BoundingBox3D bbox =
-                        insight9_device.Value_Block_to_Pcl(cloud, depth_image, results);
+                        insight9_device->Value_Block_to_Pcl(cloud, depth_image, results);
                     const char *class_name = block_class_name(results.block_class);
 
                     std_msgs::msg::String msg;

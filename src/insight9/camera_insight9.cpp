@@ -36,18 +36,18 @@ Insight9::Insight9(const CameraParams& params) : m_params(params)
 }
 
 // 工厂函数：通过配置文件创建
-Insight9 Insight9::Create_FromFile(const std::string& config_path,
+std::unique_ptr<Insight9> Insight9::Create_FromFile(const std::string& config_path,
                                    std::shared_ptr<rclcpp::Node> node)
 {
     CameraParams params = CameraParams::LoadFromFile(config_path);
-    Insight9 camera(params);
+    auto camera = std::make_unique<Insight9>(params);
 
     if (node)
     {
-        camera.Initialize_ROS2_Subscribers(node);
+        camera->Initialize_ROS2_Subscribers(node);
     }
 
-    return std::move(camera);
+    return camera;
 }
 
 // 初始化 ROS2 订阅
