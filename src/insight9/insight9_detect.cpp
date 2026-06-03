@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     try
     {
         // 调试显示开关（主线程安全）
-        const bool ENABLE_DEBUG_DISPLAY = false;
+        const bool ENABLE_DEBUG_DISPLAY = true;
         const bool ENABLE_PCL_VIEWER = false;
 
         // 初始化 - 使用绝对路径或从环境变量获取

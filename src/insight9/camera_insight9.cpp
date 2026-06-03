@@ -243,20 +243,20 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
     int depth_top = static_cast<int>(obj.top * scale_y);
     int depth_bottom = static_cast<int>(obj.bottom * scale_y);
 
-    // Debug: 打印框信息（仅一次）
-    static bool debug_printed = false;
-    if (!debug_printed)
-    {
-        COUT_BLUE_START;
-        std::cout << "[DEBUG] Detection Box - "
-                  << "Color: [" << obj.left << "," << obj.top << "-" 
-                  << obj.right << "," << obj.bottom << "] "
-                  << "Depth: [" << depth_left << "," << depth_top << "-"
-                  << depth_right << "," << depth_bottom << "] "
-                  << "Scale: (" << scale_x << ", " << scale_y << ")" << std::endl;
-        COUT_COLOR_END;
-        debug_printed = true;
-    }
+    // // Debug: 打印框信息（仅一次）
+    // static bool debug_printed = false;
+    // if (!debug_printed)
+    // {
+    //     COUT_BLUE_START;
+    //     std::cout << "[DEBUG] Detection Box - "
+    //               << "Color: [" << obj.left << "," << obj.top << "-" 
+    //               << obj.right << "," << obj.bottom << "] "
+    //               << "Depth: [" << depth_left << "," << depth_top << "-"
+    //               << depth_right << "," << depth_bottom << "] "
+    //               << "Scale: (" << scale_x << ", " << scale_y << ")" << std::endl;
+    //     COUT_COLOR_END;
+    //     debug_printed = true;
+    // }
 
     // 遍历检测框内的所有像素
     for (int py = depth_top; py < depth_bottom; ++py)
@@ -320,12 +320,12 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
     bbox.center.y /= valid_points;
     bbox.center.z /= valid_points;
 
-    // Debug: 打印点云统计
-    COUT_BLUE_START;
-    std::cout << "[DEBUG] Valid points: " << valid_points << " | "
-              << "Camera coords: [" << bbox.center.x << ", " 
-              << bbox.center.y << ", " << bbox.center.z << "]" << std::endl;
-    COUT_COLOR_END;
+    // // Debug: 打印点云统计
+    // COUT_BLUE_START;
+    // std::cout << "[DEBUG] Valid points: " << valid_points << " | "
+    //           << "Camera coords: [" << bbox.center.x << ", " 
+    //           << bbox.center.y << ", " << bbox.center.z << "]" << std::endl;
+    // COUT_COLOR_END;
 
     // 坐标变换：从相机坐标系到机器人坐标系
     float Xc = bbox.center.x;
@@ -340,11 +340,11 @@ BoundingBox3D Insight9::Value_Block_to_Pcl(
     bbox.center.y = robot_posi.y();
     bbox.center.z = robot_posi.z();
 
-    // Debug: 打印变换后的坐标
-    COUT_BLUE_START;
-    std::cout << "[DEBUG] Robot coords: [" << bbox.center.x << ", " 
-              << bbox.center.y << ", " << bbox.center.z << "]" << std::endl;
-    COUT_COLOR_END;
+    // // Debug: 打印变换后的坐标
+    // COUT_BLUE_START;
+    // std::cout << "[DEBUG] Robot coords: [" << bbox.center.x << ", " 
+    //           << bbox.center.y << ", " << bbox.center.z << "]" << std::endl;
+    // COUT_COLOR_END;
 
     // 计算偏角（弧度制）
     float yaw = atan2(bbox.center.y, bbox.center.x);     // 水平偏角
