@@ -6,8 +6,8 @@ def generate_launch_description():
     return LaunchDescription([
         Node(
             package='camera_bridge',
-            executable='k4a_detect_ros',
-            name='k4a_detect_ros',
+            executable='k4a_detect',
+            name='k4a_detect',
             output='screen'
         ),
         Node(

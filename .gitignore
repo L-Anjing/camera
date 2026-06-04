@@ -1,6 +1,8 @@
 # IDE / editor
 .vscode/
 .codex/
+.codewhale/
+.reasonix/
 
 workspace/dataset_yolo_dete/
 workspace/dataset_yolo_seg/
