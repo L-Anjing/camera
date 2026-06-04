@@ -327,20 +327,35 @@ BoundingBox3D K4a::Value_Block_to_Pcl(
     // std::cout << "fx=" << fx << " fy=" << fy
     //           << " cx=" << cx << " cy=" << cy << std::endl;
 
+    // 将 ROI 裁剪到图像边界，避免无意义遍历
+    const int cols = depth_image.cols;
+    const int rows = depth_image.rows;
+    const int roi_left   = std::max(0, static_cast<int>(obj.left));
+    const int roi_top    = std::max(0, static_cast<int>(obj.top));
+    const int roi_right  = std::min(cols, static_cast<int>(obj.right));
+    const int roi_bottom = std::min(rows, static_cast<int>(obj.bottom));
+
+    // 统计无效原因
+    size_t zero_depth_count = 0;
+    size_t out_of_range_count = 0;
+
     // 遍历检测框内的所有像素
-    for (int py = obj.top; py < obj.bottom; ++py)
+    for (int py = roi_top; py < roi_bottom; ++py)
     {
-        for (int px = obj.left; px < obj.right; ++px)
+        for (int px = roi_left; px < roi_right; ++px)
         {
-            // 边界检查
-            if (px < 0 || px >= depth_image.cols || py < 0 || py >= depth_image.rows)
+            float depth_mm = depth_image.at<uint16_t>(py, px);
+            float depth_value = depth_mm * depth_scale;
+
+            if (depth_mm == 0)
             {
+                ++zero_depth_count;
                 continue;
             }
 
-            float depth_value = depth_image.at<uint16_t>(py, px) * depth_scale;
             if (depth_value <= m_params.min_dist || depth_value > m_params.max_dist)
             {
+                ++out_of_range_count;
                 continue;
             }
 
@@ -373,16 +388,26 @@ BoundingBox3D K4a::Value_Block_to_Pcl(
     {
         // ── 全零溯源 ────────────────────────────────────
         // 以下情况会导致有效点数为 0，返回的 bbox.center = (0,0,0)：
-        //   ① ROI 内所有深度值为 0（无效像素 — 反光/暗色/边缘/过远）
-        //   ② 所有深度值被 min_dist / max_dist 过滤掉
-        //   ③ ROI 本身为空或超出图像边界
+        //   ① 深度全零（ROI 在深度相机盲区 — 彩色图边缘 / 物体反光 / 过远）
+        //   ② 深度值被 min_dist / max_dist 过滤掉
+        //   ③ ROI 裁剪后为空（检测框完全在图像外）
         //   ④ best_pattern 是默认构造（全部为 0）
+        const char *reason;
+        if (roi_left >= roi_right || roi_top >= roi_bottom)
+            reason = "ROI 裁剪后为空";
+        else if (zero_depth_count > 0 && out_of_range_count == 0)
+            reason = "全部深度值为 0（深度相机盲区 — 物体在彩色图边缘？）";
+        else
+            reason = "全部深度值被 min_dist/max_dist 过滤";
+
         std::cerr << "[WARN] 3D zero: cls=" << bbox.cls_name
                   << " ROI=[" << obj.left << "," << obj.top
                   << " -> " << obj.right << "," << obj.bottom
-                  << "] depth_size=" << depth_image.cols
-                  << "x" << depth_image.rows
-                  << " — 所有深度点无效或被过滤\n";
+                  << "] clipped=[" << roi_left << "," << roi_top
+                  << " -> " << roi_right << "," << roi_bottom
+                  << "] zero=" << zero_depth_count
+                  << " out_of_range=" << out_of_range_count
+                  << " — " << reason << "\n";
         return bbox;
     }
 
