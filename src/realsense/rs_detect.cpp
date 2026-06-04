@@ -10,11 +10,7 @@
 #include <iostream>
 #include <csignal>
 
-#if defined(BUILD_WITH_ROS1)
-#include <ros/ros.h>
-#elif defined(BUILD_WITH_ROS2)
 #include <rclcpp/rclcpp.hpp>
-#endif
 
 volatile sig_atomic_t stop_flag = 0;
 
@@ -23,23 +19,11 @@ void sigintHandler(int)
     stop_flag = 1;
 }
 
-int main(
-#if defined(BUILD_WITH_ROS1) || defined(BUILD_WITH_ROS2)
-    int argc, char **argv
-#endif
-)
+int main(int argc, char **argv)
 {
-#if defined(BUILD_WITH_ROS1)
-    ros::init(argc, argv, "rs_viewer_ros");
-    ros::NodeHandle nh;
-    signal(SIGINT, sigintHandler);
-#elif defined(BUILD_WITH_ROS2)
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("rs_viewer_ros");
+    auto node = rclcpp::Node::make_shared("rs_viewer");
     signal(SIGINT, sigintHandler);
-#else
-    std::cout << "[INFO] RealSense viewer started (non-ROS mode)" << std::endl;
-#endif
 
     try
     {
@@ -57,11 +41,7 @@ int main(
 
         while (!stop_flag)
         {
-    #if defined(BUILD_WITH_ROS1)
-            if (!ros::ok()) break;
-    #elif defined(BUILD_WITH_ROS2)
             if (!rclcpp::ok()) break;
-    #endif
 
             cv::Mat color_image, depth_image;
             cv::Mat depth_display;
@@ -84,16 +64,10 @@ int main(
                 break;
             }
 
-#if defined(BUILD_WITH_ROS1)
-            ros::spinOnce();
-#elif defined(BUILD_WITH_ROS2)
             rclcpp::spin_some(node);
-#endif
         }
 
-#ifdef BUILD_WITH_ROS2
         rclcpp::shutdown();
-#endif
 
         return EXIT_SUCCESS;
     }

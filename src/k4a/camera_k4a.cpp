@@ -154,6 +154,15 @@ void K4a::Image_to_Cv(
     cv::Mat &image_cv_color,
     cv::Mat &image_cv_depth)
 {
+    // ── 帧丢弃 ────────────────────────────────────────────
+    // 上一轮 YOLO 推理可能耗时 200~500ms，期间 K4A buffer 积压了多帧。
+    // 先用 0 超时不断弹出旧帧丢弃，确保处理的是最新的那一帧。
+    k4a::capture discard;
+    while (device.get_capture(&discard, std::chrono::milliseconds(0)))
+    {
+        // 丢弃积压的旧帧
+    }
+
     k4a::capture capture;
 
     if (!device.get_capture(&capture,
@@ -362,6 +371,18 @@ BoundingBox3D K4a::Value_Block_to_Pcl(
     }
     if (valid_points == 0)
     {
+        // ── 全零溯源 ────────────────────────────────────
+        // 以下情况会导致有效点数为 0，返回的 bbox.center = (0,0,0)：
+        //   ① ROI 内所有深度值为 0（无效像素 — 反光/暗色/边缘/过远）
+        //   ② 所有深度值被 min_dist / max_dist 过滤掉
+        //   ③ ROI 本身为空或超出图像边界
+        //   ④ best_pattern 是默认构造（全部为 0）
+        std::cerr << "[WARN] 3D zero: cls=" << bbox.cls_name
+                  << " ROI=[" << obj.left << "," << obj.top
+                  << " -> " << obj.right << "," << obj.bottom
+                  << "] depth_size=" << depth_image.cols
+                  << "x" << depth_image.rows
+                  << " — 所有深度点无效或被过滤\n";
         return bbox;
     }
 

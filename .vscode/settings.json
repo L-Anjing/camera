@@ -105,19 +105,13 @@
         "scoped_allocator": "cpp"
     },
     "python.autoComplete.extraPaths": [
-        "/home/li/catkin_ws/devel/lib/python3/dist-packages",
-        "/opt/ros/noetic/lib/python3/dist-packages"
+        "/opt/ros/humble/lib/python3.10/site-packages"
     ],
     "python.analysis.extraPaths": [
-        "/home/li/catkin_ws/devel/lib/python3/dist-packages",
-        "/opt/ros/noetic/lib/python3/dist-packages"
+        "/opt/ros/humble/lib/python3.10/site-packages"
     ],
     "git.ignoreLimitWarning": true,
-    "ROS2.distro": "noetic",
     "C_Cpp.errorSquiggles": "disabled",
-    // "cmake.configureSettings": {
-    //     "BUILD_WITH_ROS": "OFF"
-    // },
     // // 让 VS Code 使用系统的CMake而非ROS环境
     // "cmake.environment": {
     //     "ROS_DISTRO": ""

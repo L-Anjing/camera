@@ -17,14 +17,12 @@ A ROS package for Azure Kinect (K4A) and Intel RealSense camera integration with
 - **Real-time Object Detection**: YOLO integration with TensorRT acceleration
 - **ROS Integration**: Publishes sensor data and detection results via ROS topics
 - **Serial Communication**: Supports serial port communication for external devices
-- **Standalone Mode**: Can run without ROS for testing and development
-
 ## Prerequisites
 
 ### System Requirements
-- Ubuntu 20.04 or Ubuntu 22.04
+- Ubuntu 22.04
 - NVIDIA GPU with CUDA support
-- ROS Noetic or ROS Humble
+- ROS2 Humble
 
 ### Required Dependencies
 
@@ -36,7 +34,7 @@ Refer to `requirement.md`. All dependencies must be properly installed before bu
 - **OpenCV 4.2** 
 - **PCL** - Build from source (recommended for 20.04)
 - **VTK 7.1** - Build from source (recommended for 20.04)
-- **ROS Noetic or ROS Humble** - For ROS features
+- **ROS2 Humble**
 - **Azure Kinect SDK** - For K4A camera support
 - **Intel RealSense SDK** - For RealSense camera support
 - **yaml-cpp** - `sudo apt-get install libyaml-cpp-dev`
@@ -45,10 +43,9 @@ Additional dependencies will be reported during build if missing.
 
 ## Installation
 
-### 1. Create ROS Workspace
+### 1. Create ROS2 Workspace
 ```bash
-mkdir -p ~/camera_ws/src && cd ~/camera_ws/src
-catkin_init_workspace
+mkdir -p ~/camera_ws/src
 ```
 
 ### 2. Clone Repository
@@ -80,105 +77,51 @@ Edit configuration files in `config/`:
 
 ## Build
 
-### Build with Script (Recommended)
-
-Use the new script in this package:
-
-```bash
-cd ~/camera_ws/src/camera_bridge
-chmod +x build.sh
-```
-
-### ROS1 Build
-
-```bash
-source /opt/ros/noetic/setup.bash
-cd ~/camera_ws/src/camera_bridge
-./build.sh ROS1
-```
-
-### ROS2 Build
-
-```bash
-source /opt/ros/humble/setup.bash
-cd ~/camera_ws/src/camera_bridge
-./build.sh ROS2
-```
-
-If you use ROS2 workspace tools (`colcon`), build from workspace root:
-
 ```bash
 cd ~/camera_ws
 source /opt/ros/humble/setup.bash
 colcon build --packages-select camera_bridge
 ```
 
-`build.sh` supports only two arguments:
-- `./build.sh ROS1`
-- `./build.sh ROS2` 
+Or use the convenience script:
+
+```bash
+cd ~/camera_ws/src/camera_bridge
+chmod +x build.sh
+./build.sh
+```
 
 ## Usage
 
 ### Source Environment
 
-#### ROS1
-
 ```bash
-source /opt/ros/noetic/setup.bash
-cd ~/camera_ws
-source devel/setup.bash
-```
-
-#### ROS2
-
-```bash
-source /opt/ros/<your_ros2_distro>/setup.bash
+source /opt/ros/humble/setup.bash
 cd ~/camera_ws
 source install/setup.bash
 ```
 
-### Run Standalone Programs
-```bash
-# Azure Kinect detection (no ROS)
-./devel/lib/camera_bridge/k4a_detect
+### Run ROS2 Nodes
 
-# RealSense viewer (no ROS)
-./devel/lib/camera_bridge/rs_viewer
+```bash
+# Azure Kinect detection
+ros2 run camera_bridge k4a_detect
+
+# RealSense viewer
+ros2 run camera_bridge rs_viewer
+
+# Insight9 detection
+ros2 run camera_bridge insight9_detect
 
 # Capture images
-./devel/lib/camera_bridge/capture_images
+ros2 run camera_bridge k4a_capture_images
 
-# Record videos
-./devel/lib/camera_bridge/record_videos
+# Serial communication
+ros2 run camera_bridge k4a_serial_node
 ```
 
-### Run ROS Nodes
+### Run with Launch File
 
-**ROS1 single node:**
-```bash
-# Azure Kinect with ROS
-rosrun camera_bridge k4a_detect_ros
-
-# RealSense with ROS
-rosrun camera_bridge rs_viewer_ros
-```
-
-**ROS2 single node:**
-```bash
-# Azure Kinect with ROS2
-ros2 run camera_bridge k4a_detect_ros
-
-# RealSense with ROS2
-ros2 run camera_bridge rs_viewer_ros
-```
-
-**ROS1 launch file (camera + serial communication):**
-```bash
-# Ensure USB-to-TTL adapter is connected
-roslaunch camera_bridge k4a_and_serial.launch
-```
-
-**ROS2 launch file (camera + serial communication):**
 ```bash
 # Ensure USB-to-TTL adapter is connected
 ros2 launch camera_bridge k4a_and_serial.launch.py

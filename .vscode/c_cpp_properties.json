@@ -6,22 +6,16 @@
         "limitSymbolsToIncludedHeaders": false
       },
       "includePath": [
-        "/home/li/camera_ws/devel/include/**", // 编译生成的头文件
-        "/home/li/camera_ws/src/camera_bridge/inc/**",
-        "/home/li/catkin_ws/devel/include/**",
-        "/opt/ros/noetic/include/**",
-        "/home/li/catkin_ws/src/Azure_Kinect_ROS_Driver-melodic/include/**",
-        "/home/li/catkin_ws/src/eigen_checks/include/**",
-        "/home/li/catkin_ws/src/minkindr/minkindr/include/**",
-        "/home/li/catkin_ws/src/minkindr_ros/minkindr_conversions/include/**",
-        "/home/li/catkin_ws/src/realsense-ros/realsense2_camera/include/**",
+        "/home/pi/workspace/camera_ws/install/camera_bridge/include/**",
+        "/home/pi/workspace/camera_ws/src/camera_bridge/inc/**",
+        "/opt/ros/humble/include/**",
         "/usr/include/**"
       ],
-      "name": "ROS",
+      "name": "ROS2",
       "intelliSenseMode": "gcc-x64",
       "compilerPath": "/usr/bin/gcc",
       "cStandard": "gnu11",
-      "cppStandard": "c++14"
+      "cppStandard": "c++17"
     }
   ],
   "version": 4

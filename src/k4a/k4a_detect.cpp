@@ -6,13 +6,8 @@
 #include "utils/myinfer.hpp"
 #include "utils/vision_draw.hpp"
 
-#if defined(BUILD_WITH_ROS1)
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#elif defined(BUILD_WITH_ROS2)
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
-#endif
 
 volatile sig_atomic_t stop_flag = 0;
 
@@ -21,29 +16,14 @@ void sigintHandler(int)
     stop_flag = 1;
 }
 
-int main(
-#if defined(BUILD_WITH_ROS1) || defined(BUILD_WITH_ROS2)
-    int argc, char **argv
-#endif
-)
+int main(int argc, char **argv)
 {
-#if defined(BUILD_WITH_ROS1)
-    ros::init(argc, argv, "k4a_detector");
-    ros::NodeHandle nh;
-    signal(SIGINT, sigintHandler);
-
-    ros::Publisher target_pub =
-        nh.advertise<std_msgs::String>("/k4a/target_info", 10);
-#elif defined(BUILD_WITH_ROS2)
     rclcpp::init(argc, argv);
     auto node = rclcpp::Node::make_shared("k4a_detector");
     signal(SIGINT, sigintHandler);
 
     auto target_pub =
         node->create_publisher<std_msgs::msg::String>("/k4a/target_info", 10);
-#else
-    std::cout << "[INFO] K4A Detector started (non-ROS mode)\n";
-#endif
 
     try
     {
@@ -91,7 +71,14 @@ int main(
             cv::cvtColor(gray, gray3, cv::COLOR_GRAY2BGR);
 
             // YOLO 推理
+            detections.clear();
             yolo.Single_Inference(gray3, detections);
+
+            // ── 零值溯源 ────────────────────────────────
+            if (detections.empty())
+            {
+                std::cout << "[ZERO] YOLO 未检测到任何目标（置信度全部 < 0.5）\n";
+            }
 
             // YOLO Debug 显示
             cv::Mat yolo_vis = color_image.clone();
@@ -100,6 +87,19 @@ int main(
 
             // Block 融合 - 返回所有检测到的blocks 结构体容器，包含多个结构体对象
             FinalBlockResults blocks_patterns = block_recognizer.recognize(detections);
+
+            // ── 零值溯源 ────────────────────────────────
+            // blocks_patterns.empty() 的可能原因（按概率排序）：
+            //   ① detections 中无 class_label==0（全是 face 或无任何框）
+            //   ② 有 block 但无 face 的 IoF > 0.7（定位偏差大）
+            //   ③ 有关联 face 但置信度 < 0.60（block_recognizer 内硬阈值过滤）
+            //   ④ 有关联 face 但分类后 block_class 仍为 UNKNOWN
+            if (!detections.empty() && blocks_patterns.empty())
+            {
+                std::cout << "[ZERO] YOLO 检测到 " << detections.size()
+                          << " 个目标，但 recognize 融合后无有效 block"
+                          << "（无 block/无关联 face/face 置信度不足/分类失败）\n";
+            }
 
             // 显示 Final Block 窗口
             cv::Mat block_vis = color_image.clone();
@@ -117,6 +117,14 @@ int main(
                         k4a_device.Value_Block_to_Pcl(cloud, depth_image, results);
                     const char *class_name = block_class_name(results.block_class);
 
+                    // ── 零值溯源 ────────────────────────────────
+                    if (bbox.center.x == 0.0f && bbox.center.y == 0.0f && bbox.center.z == 0.0f)
+                    {
+                        std::cout << "[ZERO] block_class=" << class_name
+                                  << " recognize 成功但 3D 中心为 (0,0,0)"
+                                  << "（ROI 内深度点全部无效或被距离过滤）\n";
+                    }
+
                     if (frame_id++ % 5 == 0 )
                     {
                         std::cout << "Block Class: " << class_name
@@ -127,9 +135,8 @@ int main(
                                   << bbox.center.z << ", "
                                   << bbox.principal_dir[0] << "]\n";
                     }
-#if defined(BUILD_WITH_ROS1)
 
-                    std_msgs::String msg;
+                    std_msgs::msg::String msg;
                     std::stringstream ss;
                     ss << bbox.cls_ID << ","
                        << bbox.center.x << ","
@@ -137,20 +144,7 @@ int main(
                        << bbox.center.z << ","
                        << bbox.principal_dir[0]; // yaw
                     msg.data = ss.str();
-                    target_pub.publish(msg);
-
-#elif defined(BUILD_WITH_ROS2)
-                          std_msgs::msg::String msg;
-                          std::stringstream ss;
-                          ss << bbox.cls_ID << ","
-                              << bbox.center.x << ","
-                              << bbox.center.y << ","
-                              << bbox.center.z << ","
-                              << bbox.principal_dir[0]; // yaw
-                          msg.data = ss.str();
-                          target_pub->publish(msg);
-
-#endif
+                    target_pub->publish(msg);
 
                     // // PCL 显示
                     // if (first_cloud)
@@ -167,9 +161,12 @@ int main(
             }
             else
             {
-#if defined(BUILD_WITH_ROS1)
-                // 当没有检测到任何 block 时，发布全为 0 的占位消息，方便下游更新状态
-                std_msgs::String msg;
+                // ── 零值溯源 ────────────────────────────────
+                // 发布全零占位消息 (0,0,0,0,0)，通知下游无有效目标。
+                // 上游日志中会输出具体原因：
+                //   "YOLO 未检测到任何目标"  → YOLO 返回空
+                //   "recognize 融合后无有效 block"  → 有检测但 block+face 关联/分类失败
+                std_msgs::msg::String msg;
                 std::stringstream ss;
                 ss << 0 << ","   // cls_ID (UNKNOWN)
                    << 0 << ","   // center.x
@@ -177,26 +174,7 @@ int main(
                    << 0 << ","   // center.z
                    << 0;          // yaw
                 msg.data = ss.str();
-                target_pub.publish(msg);
-#elif defined(BUILD_WITH_ROS2)
-                     std_msgs::msg::String msg;
-                     std::stringstream ss;
-                     ss << 0 << ","   // cls_ID (UNKNOWN)
-                         << 0 << ","   // center.x
-                         << 0 << ","   // center.y
-                         << 0 << ","   // center.z
-                         << 0;          // yaw
-                     msg.data = ss.str();
-                     target_pub->publish(msg);
-#else
-                // 非 ROS 编译时，打印一条全 0 的占位信息，保持行为一致
-                if (frame_id++ % 5 == 0)
-                {
-                    std::cout << "Block Class: UNKNOWN"
-                              << " Confidence: 0"
-                              << " Center: [0, 0, 0, 0]\n";
-                }
-#endif
+                target_pub->publish(msg);
             }
 
             cv::imshow("Final Block", block_vis);
@@ -208,16 +186,10 @@ int main(
             if (key == 'q' || key == 27)
                 break;
 
-#if defined(BUILD_WITH_ROS1)
-            ros::spinOnce();
-#elif defined(BUILD_WITH_ROS2)
-        rclcpp::spin_some(node);
-#endif
+            rclcpp::spin_some(node);
         }
 
-#ifdef BUILD_WITH_ROS2
-    rclcpp::shutdown();
-#endif
+        rclcpp::shutdown();
 
         return EXIT_SUCCESS;
     }
