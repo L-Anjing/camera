@@ -201,10 +201,10 @@ void CameraCallback(const std_msgs::msg::String::SharedPtr msg)
             << " ";
     }
 
-    RCLCPP_INFO(
-        g_node->get_logger(),
-        "[serial_bridge] TX HEX: %s",
-        dbg.str().c_str());
+    // RCLCPP_INFO(
+    //     g_node->get_logger(),
+    //     "[serial_bridge] TX HEX: %s",
+    //     dbg.str().c_str());
 }
 
 // ======================================================
