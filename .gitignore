@@ -1,3 +1,7 @@
+# IDE / editor
+.vscode/
+.codex/
+
 workspace/dataset_yolo_dete/
 workspace/dataset_yolo_seg/
 workspace/images/

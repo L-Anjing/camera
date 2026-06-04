@@ -13,7 +13,7 @@ A ROS package for Azure Kinect (K4A) and Intel RealSense camera integration with
 
 ## Features
 
-- **Multi-Camera Support**: Azure Kinect DK and Intel RealSense D435/D455
+- **Multi-Camera Support**: Azure Kinect DK, Intel RealSense D435/D455, and Insight9
 - **Real-time Object Detection**: YOLO integration with TensorRT acceleration
 - **ROS Integration**: Publishes sensor data and detection results via ROS topics
 - **Serial Communication**: Supports serial port communication for external devices
@@ -74,6 +74,7 @@ set(TENSORRT_LIB_DIR "${TensorRT_ROOT}/lib")
 Edit configuration files in `config/`:
 - `K4AConfig.yaml`: Azure Kinect settings
 - `RsConfig.yaml`: RealSense settings
+- `Insight9Config.yaml`: Insight9 camera settings (refer to K4AConfig.yaml format)
 
 ## Build
 
@@ -123,8 +124,36 @@ ros2 run camera_bridge k4a_serial_node
 ### Run with Launch File
 
 ```bash
-# Ensure USB-to-TTL adapter is connected
+# K4A camera + serial communication
 ros2 launch camera_bridge k4a_and_serial.launch.py
+
+# Insight9 camera detection
+ros2 launch camera_bridge insight9_detect.launch.py
+
+# Insight9 camera + serial communication
+ros2 launch camera_bridge insight9_and_serial.launch.py
+```
+
+## Insight9 相机集成
+
+基于 ROS2 Topic 的相机驱动，兼容 K4A 模块接口。
+
+### Topic 映射
+
+| 功能 | Topic |
+|------|-------|
+| 彩色图 | `/camera/camera/color/image_rect_raw/compressed` |
+| 深度图 | `/camera/camera/depth/image_rect_raw` |
+| 检测结果 | `/insight9/target_info` |
+
+### 文件结构
+
+```
+inc/insight9/camera_insight9.hpp
+
+src/insight9/
+├── camera_insight9.cpp
+└── insight9_detect.cpp
 ```
 
 ## Project Structure
@@ -135,6 +164,7 @@ camera_bridge/
 ├── src/              # Source files
 │   ├── common/       # Common utilities
 │   ├── k4a/          # Azure Kinect implementation
+│   ├── insight9/     # Insight9 camera implementation
 │   ├── realsense/    # RealSense implementation
 │   ├── utils/        # Helper utilities
 │   └── yolo/         # YOLO inference engine
