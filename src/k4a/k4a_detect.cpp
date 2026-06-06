@@ -177,6 +177,36 @@ int main(int argc, char **argv)
                 target_pub->publish(msg);
             }
 
+            // ── 深度有效区域边界 ────────────────────────────
+            // 在 block_vis 上画出深度相机（NFOV_UNBINNED）实际有深度数据的范围。
+            // 彩色图 720P 约 90° HFOV，深度约 75° HFOV，
+            // 左右边缘的深度值为 0，检测到那里就是无效 3D。
+            if (!depth_image.empty())
+            {
+                const int sample_rows[] = {
+                    depth_image.rows / 4,
+                    depth_image.rows / 2,
+                    3 * depth_image.rows / 4};
+                int dl = depth_image.cols, dr = 0;
+                for (int r : sample_rows)
+                {
+                    const uint16_t *row = depth_image.ptr<uint16_t>(r);
+                    for (int c = 0; c < depth_image.cols; ++c)
+                        if (row[c] != 0) { if (c < dl) dl = c; break; }
+                    for (int c = depth_image.cols - 1; c >= 0; --c)
+                        if (row[c] != 0) { if (c > dr) dr = c; break; }
+                }
+                if (dl < dr)
+                {
+                    cv::line(block_vis, cv::Point(dl, 0), cv::Point(dl, block_vis.rows),
+                             cv::Scalar(0, 255, 255), 2);  // 黄色左边界
+                    cv::line(block_vis, cv::Point(dr, 0), cv::Point(dr, block_vis.rows),
+                             cv::Scalar(0, 255, 255), 2);  // 黄色右边界
+                    cv::putText(block_vis, "Depth FOV", cv::Point(dl, 30),
+                                cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
+                }
+            }
+
             cv::imshow("Final Block", block_vis);
             // cv::imshow("depth_iamge",depth_image);
 
