@@ -51,9 +51,9 @@ Refer to `requirement.md`. All dependencies must be properly installed before bu
 | **CUDA** | 11.x or higher |
 | **cuDNN** | Compatible with CUDA version |
 | **TensorRT** | 8.6.1.6 — extract to `~/TensorRT-8.6.1.6` or set `TensorRT_ROOT` |
-| **OpenCV** | 4.2 |
-| **PCL** | Build from source (recommended) or `apt install libpcl-dev` |
-| **VTK 7.1** | Build from source (recommended) or `apt install libvtk7-dev libvtk7-qt-dev` |
+| **OpenCV** | 4.2 — `apt install libopencv-dev` |
+| **PCL** | `apt install libpcl-dev` |
+| **VTK 7.1** | `apt install libvtk7-dev libvtk7-qt-dev` |
 | **ROS2 Humble** | Desktop or base install |
 | **Azure Kinect SDK** | For K4A camera support |
 | **Intel RealSense SDK** | For RealSense camera support |

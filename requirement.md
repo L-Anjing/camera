@@ -7,8 +7,16 @@
     sudo apt install libopencv-dev
 ```
 # TensorRT-8.6.1.6 源码安装
-# PCL 1.15 or others 源码安装(20.04)
-# VTK-7.1 源码编译(20.04)
+# PCL
+# VTK-7.1
+```
+sudo apt update
+
+sudo apt install \
+    libpcl-dev \
+    libvtk7-dev \
+    libvtk7-qt-dev
+```
 # ROS noetic or ROS2 Humble
 # realsense 驱动(+ ros 驱动)
 # k4a 驱动（+ ros 驱动）
