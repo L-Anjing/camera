@@ -1,9 +1,22 @@
-<!-- markdownlint-disable -->
-# Camera Bridge
+<div align="center">
 
-A ROS package for Azure Kinect (K4A) and Intel RealSense camera integration with YOLO-based object detection and TensorRT inference acceleration.
+# 🎥 Camera Bridge
 
-## Table of Contents
+**ROS2 package for Azure Kinect · Intel RealSense · Insight9**  
+_YOLO object detection accelerated by TensorRT_
+
+[![ROS2](https://img.shields.io/badge/ROS2-Humble-blue?style=flat&logo=ros)](https://docs.ros.org/en/humble/)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04-orange?style=flat&logo=ubuntu)](https://ubuntu.com/)
+[![CUDA](https://img.shields.io/badge/CUDA-11.x-green?style=flat&logo=nvidia)](https://developer.nvidia.com/cuda-toolkit)
+[![TensorRT](https://img.shields.io/badge/TensorRT-8.6-76B900?style=flat&logo=nvidia)](https://developer.nvidia.com/tensorrt)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat)]()
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
@@ -11,13 +24,18 @@ A ROS package for Azure Kinect (K4A) and Intel RealSense camera integration with
 - [Build](#build)
 - [Usage](#usage)
 
-## Features
+---
+
+## ✨ Features
 
 - **Multi-Camera Support**: Azure Kinect DK, Intel RealSense D435/D455, and Insight9
 - **Real-time Object Detection**: YOLO integration with TensorRT acceleration
 - **ROS Integration**: Publishes sensor data and detection results via ROS topics
 - **Serial Communication**: Supports serial port communication for external devices
-## Prerequisites
+
+---
+
+## 📦 Prerequisites
 
 ### System Requirements
 - Ubuntu 22.04
@@ -28,20 +46,24 @@ A ROS package for Azure Kinect (K4A) and Intel RealSense camera integration with
 
 Refer to `requirement.md`. All dependencies must be properly installed before building:
 
-- **CUDA** (11.x or higher)
-- **cuDNN**
-- **TensorRT 8.6.1.6** - Extract to `~/TensorRT-8.6.1.6` or set `TensorRT_ROOT` environment variable
-- **OpenCV 4.2** 
-- **PCL** - Build from source (recommended for 20.04)
-- **VTK 7.1** - Build from source (recommended for 20.04)
-- **ROS2 Humble**
-- **Azure Kinect SDK** - For K4A camera support
-- **Intel RealSense SDK** - For RealSense camera support
-- **yaml-cpp** - `sudo apt-get install libyaml-cpp-dev`
+| Dependency | Version / Notes |
+|------------|----------------|
+| **CUDA** | 11.x or higher |
+| **cuDNN** | Compatible with CUDA version |
+| **TensorRT** | 8.6.1.6 — extract to `~/TensorRT-8.6.1.6` or set `TensorRT_ROOT` |
+| **OpenCV** | 4.2 |
+| **PCL** | Build from source (recommended) or `apt install libpcl-dev` |
+| **VTK 7.1** | Build from source (recommended) or `apt install libvtk7-dev libvtk7-qt-dev` |
+| **ROS2 Humble** | Desktop or base install |
+| **Azure Kinect SDK** | For K4A camera support |
+| **Intel RealSense SDK** | For RealSense camera support |
+| **yaml-cpp** | `sudo apt install libyaml-cpp-dev` |
 
 Additional dependencies will be reported during build if missing.
 
-## Installation
+---
+
+## 🚀 Installation
 
 ### 1. Create ROS2 Workspace
 ```bash
@@ -56,14 +78,18 @@ git clone https://github.com/L-Anjing/camera camera_bridge
 
 ### 3. Install Dependencies
 Refer to `requirement.md` and install each dependency according to the official documentation or Notion notes.
-#### Note:  
-CUDA ,CUDNN and TensorRT must be *Version Adaptation* 
-## Configuration
+
+> **⚠️ Note:** CUDA, cuDNN and TensorRT must be **version-compatible** — check the official compatibility matrix.
+
+---
+
+## ⚙️ Configuration
 
 ### TensorRT Path Setup
-The default TensorRT path is `$ENV{HOME}/TensorRT-8.6.1.6`. 
-Eidt CmakeLists.txt file in 
-```
+The default TensorRT path is `$ENV{HOME}/TensorRT-8.6.1.6`.  
+Edit `CMakeLists.txt`:
+
+```cmake
 # 手动指定 TensorRT 路径 (基于你之前的安装路径)
 set(TensorRT_ROOT "/opt/TensorRT-8.6.1.6")
 set(TENSORRT_INCLUDE_DIR "${TensorRT_ROOT}/include")
@@ -72,11 +98,16 @@ set(TENSORRT_LIB_DIR "${TensorRT_ROOT}/lib")
 
 ### Camera Configuration
 Edit configuration files in `config/`:
-- `K4AConfig.yaml`: Azure Kinect settings
-- `RsConfig.yaml`: RealSense settings
-- `Insight9Config.yaml`: Insight9 camera settings (refer to K4AConfig.yaml format)
 
-## Build
+| File | Purpose |
+|------|---------|
+| `K4AConfig.yaml` | Azure Kinect settings |
+| `RsConfig.yaml` | RealSense settings |
+| `Insight9Config.yaml` | Insight9 camera settings (refer to K4AConfig.yaml format) |
+
+---
+
+## 🔨 Build
 
 ```bash
 cd ~/camera_ws
@@ -84,15 +115,9 @@ source /opt/ros/humble/setup.bash
 colcon build --packages-select camera_bridge
 ```
 
-Or use the convenience script:
+---
 
-```bash
-cd ~/camera_ws/src/camera_bridge
-chmod +x build.sh
-./build.sh
-```
-
-## Usage
+## ▶️ Usage
 
 ### Source Environment
 
@@ -104,22 +129,13 @@ source install/setup.bash
 
 ### Run ROS2 Nodes
 
-```bash
-# Azure Kinect detection
-ros2 run camera_bridge k4a_detect
-
-# RealSense viewer
-ros2 run camera_bridge rs_viewer
-
-# Insight9 detection
-ros2 run camera_bridge insight9_detect
-
-# Capture images
-ros2 run camera_bridge k4a_capture_images
-
-# Serial communication
-ros2 run camera_bridge k4a_serial_node
-```
+| Command | Description |
+|---------|-------------|
+| `ros2 run camera_bridge k4a_detect` | Azure Kinect detection |
+| `ros2 run camera_bridge rs_viewer` | RealSense viewer |
+| `ros2 run camera_bridge insight9_detect` | Insight9 detection |
+| `ros2 run camera_bridge k4a_capture_images` | Capture images |
+| `ros2 run camera_bridge k4a_serial_node` | Serial communication |
 
 ### Run with Launch File
 
@@ -134,7 +150,9 @@ ros2 launch camera_bridge insight9_detect.launch.py
 ros2 launch camera_bridge insight9_and_serial.launch.py
 ```
 
-## Insight9 相机集成
+---
+
+## 🔌 Insight9 相机集成
 
 基于 ROS2 Topic 的相机驱动，兼容 K4A 模块接口。
 
@@ -146,17 +164,10 @@ ros2 launch camera_bridge insight9_and_serial.launch.py
 | 深度图 | `/camera/camera/depth/image_rect_raw` |
 | 检测结果 | `/insight9/target_info` |
 
-### 文件结构
+---
 
-```
-inc/insight9/camera_insight9.hpp
+## 📁 Project Structure
 
-src/insight9/
-├── camera_insight9.cpp
-└── insight9_detect.cpp
-```
-
-## Project Structure
 ```
 camera_bridge/
 ├── config/           # Configuration files
