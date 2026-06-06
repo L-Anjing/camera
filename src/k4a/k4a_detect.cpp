@@ -177,18 +177,18 @@ int main(int argc, char **argv)
                 target_pub->publish(msg);
             }
 
-            // ── 深度有效区域边界 ────────────────────────────
-            // 在 block_vis 上画出深度相机（NFOV_UNBINNED）实际有深度数据的范围。
-            // 彩色图 720P 约 90° HFOV，深度约 75° HFOV，
-            // 左右边缘的深度值为 0，检测到那里就是无效 3D。
+            // ── 深度有效区域矩形框 ────────────────────────
+            // RGB: 720P (1280×720, ~90°×59°)
+            // 深度: NFOV_UNBINNED (640×576, 75°×65°)
+            // 对齐后深度图是 1280×720，但左右边缘无深度数据。
+            // 扫描采样行找出有效深度区，画矩形标注。
             if (!depth_image.empty())
             {
-                const int sample_rows[] = {
-                    depth_image.rows / 4,
-                    depth_image.rows / 2,
-                    3 * depth_image.rows / 4};
+                const int sr[] = {depth_image.rows / 4, depth_image.rows / 2,
+                                  3 * depth_image.rows / 4};
                 int dl = depth_image.cols, dr = 0;
-                for (int r : sample_rows)
+                int dt = depth_image.rows, db = 0;
+                for (int r : sr)
                 {
                     const uint16_t *row = depth_image.ptr<uint16_t>(r);
                     for (int c = 0; c < depth_image.cols; ++c)
@@ -196,13 +196,19 @@ int main(int argc, char **argv)
                     for (int c = depth_image.cols - 1; c >= 0; --c)
                         if (row[c] != 0) { if (c > dr) dr = c; break; }
                 }
-                if (dl < dr)
+                // 上下边界：RGB VFOV 59° < 深度 VFOV 65°，所以通常填满
+                for (int c = depth_image.cols / 3; c < 2 * depth_image.cols / 3; ++c)
                 {
-                    cv::line(block_vis, cv::Point(dl, 0), cv::Point(dl, block_vis.rows),
-                             cv::Scalar(0, 255, 255), 2);  // 黄色左边界
-                    cv::line(block_vis, cv::Point(dr, 0), cv::Point(dr, block_vis.rows),
-                             cv::Scalar(0, 255, 255), 2);  // 黄色右边界
-                    cv::putText(block_vis, "Depth FOV", cv::Point(dl, 30),
+                    for (int r = 0; r < depth_image.rows; ++r)
+                        if (depth_image.at<uint16_t>(r, c) != 0) { if (r < dt) dt = r; break; }
+                    for (int r = depth_image.rows - 1; r >= 0; --r)
+                        if (depth_image.at<uint16_t>(r, c) != 0) { if (r > db) db = r; break; }
+                }
+                if (dl < dr && dt < db)
+                {
+                    cv::rectangle(block_vis, cv::Rect(dl, dt, dr - dl, db - dt),
+                                  cv::Scalar(0, 255, 255), 2);
+                    cv::putText(block_vis, "Depth FOV", cv::Point(dl + 5, dt + 25),
                                 cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
                 }
             }
