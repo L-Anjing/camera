@@ -60,6 +60,11 @@ int main(int argc, char **argv)
         cv::Rect depth_fov_rect;
         bool depth_fov_initialized = false;
 
+        // ── EMA 平滑滤波器 ─────────────────────────────
+        struct { bool ok = false; float x, y, z; } center_filt;
+        constexpr float EMA_ALPHA = 0.35f;        // 平滑系数（越大越跟随当前帧）
+        constexpr float OUTLIER_DIST = 0.10f;     // 10cm 离群阈值
+
         while (!stop_flag)
         {
             cv::Mat color_image, depth_image;
@@ -130,6 +135,48 @@ int main(int argc, char **argv)
                                   << " recognize 成功但 3D 中心为 (0,0,0)"
                                   << "（ROI 内深度点全部无效或被距离过滤）\n";
                     }
+
+                    // ── EMA 滤波 + 离群值抑制 ─────────────────
+                    // 跳动 >10cm 丢弃，零值穿透不参与滤波
+                    cv::Point3f out_center = bbox.center;
+                    if (bbox.center.x == 0.0f && bbox.center.y == 0.0f && bbox.center.z == 0.0f)
+                    {
+                        center_filt.ok = false;   // 零值 → 重置滤波器
+                    }
+                    else if (!center_filt.ok)
+                    {
+                        center_filt.x = bbox.center.x;
+                        center_filt.y = bbox.center.y;
+                        center_filt.z = bbox.center.z;
+                        center_filt.ok = true;
+                    }
+                    else
+                    {
+                        float dx = bbox.center.x - center_filt.x;
+                        float dy = bbox.center.y - center_filt.y;
+                        float dz = bbox.center.z - center_filt.z;
+                        float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+                        if (dist > OUTLIER_DIST)
+                        {
+                            std::cout << "[FILTER] jump=" << (dist*100)
+                                      << "cm, reject, use prev\n";
+                            out_center.x = center_filt.x;
+                            out_center.y = center_filt.y;
+                            out_center.z = center_filt.z;
+                        }
+                        else
+                        {
+                            center_filt.x = EMA_ALPHA * bbox.center.x + (1-EMA_ALPHA) * center_filt.x;
+                            center_filt.y = EMA_ALPHA * bbox.center.y + (1-EMA_ALPHA) * center_filt.y;
+                            center_filt.z = EMA_ALPHA * bbox.center.z + (1-EMA_ALPHA) * center_filt.z;
+                            out_center.x = center_filt.x;
+                            out_center.y = center_filt.y;
+                            out_center.z = center_filt.z;
+                        }
+                    }
+                    bbox.center = out_center;
+                    // 重算 yaw（基于滤波后的 center）
+                    bbox.principal_dir[0] = std::atan2(bbox.center.y, bbox.center.x);
 
                     if (frame_id++ % 5 == 0 )
                     {
