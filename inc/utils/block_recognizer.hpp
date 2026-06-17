@@ -30,13 +30,23 @@ static inline const char *block_class_name(BlockClass c)
     }
 }
 
+// 单个候选面（几何打分排序，用于 Z≤0 时切换）
+struct FaceCandidate
+{
+    yolo::Box box;
+    float geom_score;           // 几何打分（越大越正）
+    int class_label;            // 面类别
+};
+
 // 最终识别结果（单个block）
 struct FinalBlockResult
 {
     yolo::Box detection;        // 单个最终 block
     BlockClass block_class;
     float confidence;
-    yolo::Box best_pattern;
+    yolo::Box best_pattern;     // 几何最优面（默认使用）
+
+    std::vector<FaceCandidate> candidates; // 备选面（按 geom_score 降序）
 
     FinalBlockResult() : block_class(BlockClass::UNKNOWN), confidence(0.0f) {}
     

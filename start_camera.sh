@@ -3,26 +3,56 @@
 set -uo pipefail
 
 LOG=~/camera_start.log
-TERM_TITLE="Azure Kinect Camera Start"
+PIDFILE=/tmp/camera_watchdog.pid
+
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
 
 ##################################################
-# 新终端启动
+# 打开独立终端
 ##################################################
 
 if [ "${1:-}" != "--run" ]; then
 
-    if [ -n "${DISPLAY:-}" ] && command -v gnome-terminal >/dev/null 2>&1; then
-        gnome-terminal \
-            --title="$TERM_TITLE" \
-            -- bash -lc "'$SCRIPT_PATH' --run; exec bash"
+    if [ "${1:-}" = "--stop" ]; then
+
+        if [ -f "$PIDFILE" ]; then
+            PID=$(cat "$PIDFILE")
+
+            echo "Stopping watchdog PID=$PID"
+
+            kill -TERM "$PID" 2>/dev/null
+
+            rm -f "$PIDFILE"
+        else
+            echo "Watchdog not running"
+        fi
+
         exit 0
     fi
 
-    if [ -n "${DISPLAY:-}" ] && command -v xterm >/dev/null 2>&1; then
-        xterm \
-            -T "$TERM_TITLE" \
-            -e bash -lc "'$SCRIPT_PATH' --run; exec bash" &
+    if [ "${1:-}" = "--status" ]; then
+
+        if [ -f "$PIDFILE" ]; then
+
+            PID=$(cat "$PIDFILE")
+
+            if kill -0 "$PID" 2>/dev/null; then
+                echo "Running PID=$PID"
+            else
+                echo "PID file exists but process dead"
+            fi
+
+        else
+            echo "Not running"
+        fi
+
+        exit 0
+    fi
+
+    if [ -n "${DISPLAY:-}" ] && command -v gnome-terminal >/dev/null 2>&1; then
+        gnome-terminal \
+            --title="Azure Kinect Watchdog" \
+            -- bash -lc "'$SCRIPT_PATH' --run; exec bash"
         exit 0
     fi
 
@@ -33,16 +63,13 @@ fi
 # 日志
 ##################################################
 
-echo "====================" > "$LOG"
-echo "ROS2 Camera Startup" >> "$LOG"
-date >> "$LOG"
-echo "====================" >> "$LOG"
+echo $$ > "$PIDFILE"
 
 exec > >(tee -a "$LOG") 2>&1
 
 log()
 {
-    echo "[$(date '+%F %T')] $*"
+    echo "[CAMERA-WD][$(date '+%F %T')] $*"
 }
 
 ##################################################
@@ -57,29 +84,20 @@ load_env()
     source ~/workspace/camera_ws/install/setup.bash || return 1
 
     set -u
+
+    return 0
 }
 
 ##################################################
-# 等待设备
-##################################################
-
-wait_camera()
-{
-    while true
-    do
-        if [ -e /dev/azurekinect ]; then
-            return 0
-        fi
-
-        sleep 0.2
-    done
-}
-
-##################################################
-# 清理当前Launch
+# 全局变量
 ##################################################
 
 LAUNCH_PID=""
+STOP_REQUESTED=0
+
+##################################################
+# 清理当前launch
+##################################################
 
 cleanup_launch()
 {
@@ -92,7 +110,7 @@ cleanup_launch()
         return
     fi
 
-    log "Stopping old camera launch PID=$LAUNCH_PID"
+    log "Stopping camera launch PID=$LAUNCH_PID"
 
     PGID=$(ps -o pgid= "$LAUNCH_PID" 2>/dev/null | tr -d ' ')
 
@@ -105,6 +123,7 @@ cleanup_launch()
             if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
                 break
             fi
+
             sleep 0.1
         done
 
@@ -117,22 +136,70 @@ cleanup_launch()
 }
 
 ##################################################
-# Ctrl+C退出时清理
+# Ctrl+C处理
 ##################################################
 
-trap cleanup_launch EXIT INT TERM
+shutdown()
+{
+    log "User requested stop"
+
+    STOP_REQUESTED=1
+
+    cleanup_launch
+
+    rm -f "$PIDFILE"
+
+    exit 0
+}
+
+trap shutdown SIGINT SIGTERM
+
+##################################################
+# 等待设备
+##################################################
+
+wait_camera()
+{
+    while true
+    do
+
+        if [ "$STOP_REQUESTED" = "1" ]; then
+            return 1
+        fi
+
+        if [ -e /dev/azurekinect ]; then
+            return 0
+        fi
+
+        sleep 0.2
+    done
+}
+
+##################################################
+# 启动信息
+##################################################
+
+log "========================================="
+log "Azure Kinect Watchdog Started"
+log "PID=$$"
+log "Log file: $LOG"
+log "Stop command:"
+log "kill $$"
+log "========================================="
 
 ##################################################
 # 主循环
 ##################################################
 
-log "Camera watchdog started"
-
 while true
 do
 
+    if [ "$STOP_REQUESTED" = "1" ]; then
+        break
+    fi
+
     ################################################
-    # 环境检查
+    # ROS环境
     ################################################
 
     if ! load_env; then
@@ -146,12 +213,16 @@ do
     # 等待设备
     ################################################
 
-    wait_camera
+    log "Waiting Azure Kinect..."
+
+    if ! wait_camera; then
+        break
+    fi
 
     log "Azure Kinect detected"
 
     ################################################
-    # 启动Launch
+    # 启动launch
     ################################################
 
     log "Launching camera_bridge..."
@@ -162,24 +233,36 @@ do
     log "Launch PID=$LAUNCH_PID"
 
     ################################################
-    # 等待退出
+    # 等待launch结束
     ################################################
 
     wait "$LAUNCH_PID"
     EXIT_CODE=$?
 
-    log "Launch exited code=$EXIT_CODE"
+    ################################################
+    # 如果是用户Ctrl+C
+    ################################################
+
+    if [ "$STOP_REQUESTED" = "1" ]; then
+        break
+    fi
 
     ################################################
-    # 清理残留
+    # launch异常退出
     ################################################
+
+    log "Launch exited code=$EXIT_CODE"
 
     cleanup_launch
 
-    ################################################
-    # 快速重试
-    ################################################
+    log "Restart after 1 second..."
 
     sleep 1
 
 done
+
+cleanup_launch
+
+rm -f "$PIDFILE"
+
+log "Watchdog exited"

@@ -96,6 +96,9 @@ public:
 
     CameraIntrinsics get_depth_intrinsics() const;
 
+    // 相机→机器人旋转矩阵（用于方向坐标转换）
+    const Eigen::Matrix3f &get_rotation() const { return m_params.rotation; }
+
     void Image_to_Cv(cv::Mat &image_cv_color, cv::Mat &image_cv_depth);
 
     void Color_to_Cv(cv::Mat &iamge_cv_color);
@@ -117,6 +120,11 @@ public:
     void Value_Depth_to_Pcl(
         const k4a::image &depth_to_color,
         pcl::PointCloud<pcl::PointXYZ> &cloud);
+
+    // 从 face ROI 深度点云拟合平面法向量（相机坐标系，用于面选择）
+    Eigen::Vector3f compute_roi_normal(
+        const cv::Mat &depth_image,
+        const yolo::Box &face_box) const;
 
     void Save_Image(int amount, std::string output_dir);
 

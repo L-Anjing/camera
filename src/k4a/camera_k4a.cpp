@@ -295,11 +295,13 @@ BoundingBox3D K4a::Value_Block_to_Pcl(
 {
     cloud->clear();
 
+
     BoundingBox3D bbox;
     bbox.min_pt = cv::Point3f(FLT_MAX, FLT_MAX, FLT_MAX);
     bbox.max_pt = cv::Point3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
     bbox.center = cv::Point3f(0, 0, 0);
-    bbox.principal_dir = cv::Vec3f(0, 0, 0);
+    bbox.principal_dir = cv::Vec3f(0, 0, 0); 
+    
 
     bbox.cls_ID = -1;
     bbox.cls_name = "unknown";
@@ -484,6 +486,66 @@ void K4a::Value_Depth_to_Pcl(
 
     std::cout << "Global PointCloud: "
               << cloud.size() << std::endl;
+}
+
+// ── PCA 平面拟合：从 face ROI 深度点云求法向量 ──────
+// 返回相机坐标系下的单位法向量（指向相机为正）
+Eigen::Vector3f K4a::compute_roi_normal(
+    const cv::Mat &depth_image,
+    const yolo::Box &face_box) const
+{
+    CameraIntrinsics intr = get_color_intrinsics();
+    const float fx = intr.fx, fy = intr.fy;
+    const float cx = intr.cx, cy = intr.cy;
+    const float depth_scale = 0.001f;
+
+    const int L = std::max(0, static_cast<int>(face_box.left));
+    const int T = std::max(0, static_cast<int>(face_box.top));
+    const int R = std::min(depth_image.cols, static_cast<int>(face_box.right));
+    const int B = std::min(depth_image.rows, static_cast<int>(face_box.bottom));
+
+    // 收集有效 3D 点（相机坐标系）
+    std::vector<Eigen::Vector3f> pts;
+    pts.reserve((R - L) * (B - T) / 4);
+
+    for (int py = T; py < B; ++py)
+    {
+        for (int px = L; px < R; ++px)
+        {
+            uint16_t raw = depth_image.at<uint16_t>(py, px);
+            if (raw == 0) continue;
+            float d = raw * depth_scale;
+            if (d <= m_params.min_dist || d > m_params.max_dist) continue;
+
+            float X = (px - cx) * d / fx;
+            float Y = (py - cy) * d / fy;
+            float Z = d;
+            pts.emplace_back(X, Y, Z);
+        }
+    }
+
+    if (pts.size() < 10)
+        return Eigen::Vector3f::UnitZ();   // 点太少，回退到默认
+
+    // 质心
+    Eigen::Vector3f cen = Eigen::Vector3f::Zero();
+    for (const auto &p : pts) cen += p;
+    cen /= static_cast<float>(pts.size());
+
+    // 协方差矩阵 3×3
+    Eigen::Matrix3f cov = Eigen::Matrix3f::Zero();
+    for (const auto &p : pts)
+    {
+        Eigen::Vector3f d = p - cen;
+        cov += d * d.transpose();
+    }
+
+    // 特征分解 → 最小特征值对应的特征向量 = 法向量
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig(cov);
+    Eigen::Vector3f normal = eig.eigenvectors().col(0);
+    normal.normalize();
+
+    return normal;
 }
 
 void K4a::record_videos(const std::string &output_path_prefix, const std::string &obj)

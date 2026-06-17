@@ -1,5 +1,6 @@
 #include <iostream>
 #include <csignal>
+#include <algorithm>
 
 #include "utils/block_recognizer.hpp"
 #include "k4a/camera_k4a.hpp"
@@ -8,6 +9,7 @@
 
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <Eigen/Dense>
 
 volatile sig_atomic_t stop_flag = 0;
 
@@ -54,15 +56,11 @@ int main(int argc, char **argv)
 
         int frame_id = 0;
 
-        // ── 深度有效区域（硬参数，首帧算一次后缓存）───
-        // RGB 720P: ~90°×59°, 深度 NFOV_UNBINNED: 75°×65°
-        // 对齐后深度图 1280×720，左右边缘约 110 像素无深度数据。
-        cv::Rect depth_fov_rect;
-        bool depth_fov_initialized = false;
-
-        // ── EMA 平滑滤波器 ─────────────────────────────
-        struct { bool ok = false; float x, y, z; } center_filt;
-        constexpr float EMA_ALPHA = 0.35f;        // 平滑系数（越大越跟随当前帧）
+        // ── 中值滤波（窗口=5）+ 离群抑制 ───────────────
+        struct {
+            float x[5], y[5], z[5];
+            int n = 0, idx = 0;
+        } med;
         constexpr float OUTLIER_DIST = 0.10f;     // 10cm 离群阈值
 
         while (!stop_flag)
@@ -85,12 +83,6 @@ int main(int argc, char **argv)
             detections.clear();
             yolo.Single_Inference(gray3, detections);
 
-            // ── 零值溯源 ────────────────────────────────
-            if (detections.empty())
-            {
-                std::cout << "[ZERO] YOLO 未检测到任何目标（置信度全部 < 0.5）\n";
-            }
-
             // YOLO Debug 显示
             cv::Mat yolo_vis = color_image.clone();
             vision::draw_yolo_detections(yolo_vis, detections);
@@ -99,83 +91,98 @@ int main(int argc, char **argv)
             // Block 融合 - 返回所有检测到的blocks 结构体容器，包含多个结构体对象
             FinalBlockResults blocks_patterns = block_recognizer.recognize(detections);
 
-            // ── 零值溯源 ────────────────────────────────
-            // blocks_patterns.empty() 的可能原因（按概率排序）：
-            //   ① detections 中无 class_label==0（全是 face 或无任何框）
-            //   ② 有 block 但无 face 的 IoF > 0.7（定位偏差大）
-            //   ③ 有关联 face 但置信度 < 0.60（block_recognizer 内硬阈值过滤）
-            //   ④ 有关联 face 但分类后 block_class 仍为 UNKNOWN
-            if (!detections.empty() && blocks_patterns.empty())
-            {
-                std::cout << "[ZERO] YOLO 检测到 " << detections.size()
-                          << " 个目标，但 recognize 融合后无有效 block"
-                          << "（无 block/无关联 face/face 置信度不足/分类失败）\n";
-            }
-
             // 显示 Final Block 窗口
             cv::Mat block_vis = color_image.clone();
 
             // 处理所有检测到的blocks
             if (!blocks_patterns.empty())
             {
-                for (const auto &results : blocks_patterns)
+                for (auto &results : blocks_patterns)
                 {
                     // 绘制融合结果
                     vision::draw_block_result(block_vis, results);
 
-                    // 3D 计算
+                    // 3D 计算（始终用 best_pattern — 几何最正面）
                     BoundingBox3D bbox =
                         k4a_device.Value_Block_to_Pcl(cloud, depth_image, results);
                     const char *class_name = block_class_name(results.block_class);
 
-                    // ── 零值溯源 ────────────────────────────────
-                    if (bbox.center.x == 0.0f && bbox.center.y == 0.0f && bbox.center.z == 0.0f)
+                    // ── 面选择：PCA 拟合面法向量，选最正对机器人的面 ──
+                    // 预期方向 = 物体指向机器人原点 = -center_robot.normalized()
+                    if (results.candidates.size() > 1)
                     {
-                        std::cout << "[ZERO] block_class=" << class_name
-                                  << " recognize 成功但 3D 中心为 (0,0,0)"
-                                  << "（ROI 内深度点全部无效或被距离过滤）\n";
+                        const Eigen::Matrix3f &R = k4a_device.get_rotation();
+                        Eigen::Vector3f dir_to_robot = -Eigen::Vector3f(
+                            bbox.center.x, bbox.center.y, bbox.center.z);
+                        dir_to_robot.normalize();
+
+                        int best_label = results.detection.class_label;
+                        float best_dot = -1.0f;
+
+                        for (const auto &c : results.candidates)
+                        {
+                            Eigen::Vector3f n_cam = k4a_device.compute_roi_normal(
+                                depth_image, c.box);
+                            Eigen::Vector3f n_robot = R * n_cam;     // 转到机器人系
+                            float d = std::abs(n_robot.dot(dir_to_robot));
+                            if (d > best_dot)
+                            {
+                                best_dot = d;
+                                best_label = c.class_label;
+                            }
+                        }
+
+                        if (best_label != results.detection.class_label)
+                        {
+                            bbox.cls_ID = best_label;
+                            bbox.cls_name = "NORMAL";
+                        }
                     }
 
-                    // ── EMA 滤波 + 离群值抑制 ─────────────────
-                    // 跳动 >10cm 丢弃，零值穿透不参与滤波
+                    // ── 中值滤波（窗口=5）+ 离群抑制 ─────────
                     cv::Point3f out_center = bbox.center;
                     if (bbox.center.x == 0.0f && bbox.center.y == 0.0f && bbox.center.z == 0.0f)
                     {
-                        center_filt.ok = false;   // 零值 → 重置滤波器
-                    }
-                    else if (!center_filt.ok)
-                    {
-                        center_filt.x = bbox.center.x;
-                        center_filt.y = bbox.center.y;
-                        center_filt.z = bbox.center.z;
-                        center_filt.ok = true;
+                        med.n = 0;   // 零值 → 重置
                     }
                     else
                     {
-                        float dx = bbox.center.x - center_filt.x;
-                        float dy = bbox.center.y - center_filt.y;
-                        float dz = bbox.center.z - center_filt.z;
-                        float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-                        if (dist > OUTLIER_DIST)
+                        // 离群检测（有历史时）
+                        if (med.n >= 3)
                         {
-                            std::cout << "[FILTER] jump=" << (dist*100)
-                                      << "cm, reject, use prev\n";
-                            out_center.x = center_filt.x;
-                            out_center.y = center_filt.y;
-                            out_center.z = center_filt.z;
+                            int prev = (med.idx - 1 + 5) % 5;
+                            float dx = bbox.center.x - med.x[prev];
+                            float dy = bbox.center.y - med.y[prev];
+                            float dz = bbox.center.z - med.z[prev];
+                            if (std::sqrt(dx*dx + dy*dy + dz*dz) > OUTLIER_DIST)
+                            {
+                                goto skip_push;
+                            }
                         }
-                        else
+                        // 入队
+                        med.x[med.idx] = bbox.center.x;
+                        med.y[med.idx] = bbox.center.y;
+                        med.z[med.idx] = bbox.center.z;
+                        med.idx = (med.idx + 1) % 5;
+                        if (med.n < 5) ++med.n;
+
+                        // 取中值（窗口≥3 时开始输出）
+                        if (med.n >= 3)
                         {
-                            center_filt.x = EMA_ALPHA * bbox.center.x + (1-EMA_ALPHA) * center_filt.x;
-                            center_filt.y = EMA_ALPHA * bbox.center.y + (1-EMA_ALPHA) * center_filt.y;
-                            center_filt.z = EMA_ALPHA * bbox.center.z + (1-EMA_ALPHA) * center_filt.z;
-                            out_center.x = center_filt.x;
-                            out_center.y = center_filt.y;
-                            out_center.z = center_filt.z;
+                            float cx[5], cy[5], cz[5];
+                            std::copy_n(med.x, med.n, cx);
+                            std::copy_n(med.y, med.n, cy);
+                            std::copy_n(med.z, med.n, cz);
+                            std::sort(cx, cx + med.n);
+                            std::sort(cy, cy + med.n);
+                            std::sort(cz, cz + med.n);
+                            out_center.x = cx[med.n / 2];
+                            out_center.y = cy[med.n / 2];
+                            out_center.z = cz[med.n / 2];
                         }
                     }
+                    skip_push:
                     bbox.center = out_center;
-                    // 重算 yaw（基于滤波后的 center）
                     bbox.principal_dir[0] = std::atan2(bbox.center.y, bbox.center.x);
 
                     if (frame_id++ % 5 == 0 )
@@ -214,11 +221,6 @@ int main(int argc, char **argv)
             }
             else
             {
-                // ── 零值溯源 ────────────────────────────────
-                // 发布全零占位消息 (0,0,0,0,0)，通知下游无有效目标。
-                // 上游日志中会输出具体原因：
-                //   "YOLO 未检测到任何目标"  → YOLO 返回空
-                //   "recognize 融合后无有效 block"  → 有检测但 block+face 关联/分类失败
                 std_msgs::msg::String msg;
                 std::stringstream ss;
                 ss << 0 << ","   // cls_ID (UNKNOWN)
@@ -228,43 +230,6 @@ int main(int argc, char **argv)
                    << 0;          // yaw
                 msg.data = ss.str();
                 target_pub->publish(msg);
-            }
-
-            // ── 深度有效区域矩形框（硬参数，首帧初始化）───
-            if (!depth_fov_initialized && !depth_image.empty())
-            {
-                const int sr[] = {depth_image.rows / 4, depth_image.rows / 2,
-                                  3 * depth_image.rows / 4};
-                int dl = depth_image.cols, dr = 0;
-                int dt = depth_image.rows, db = 0;
-                for (int r : sr)
-                {
-                    const uint16_t *row = depth_image.ptr<uint16_t>(r);
-                    for (int c = 0; c < depth_image.cols; ++c)
-                        if (row[c] != 0) { if (c < dl) dl = c; break; }
-                    for (int c = depth_image.cols - 1; c >= 0; --c)
-                        if (row[c] != 0) { if (c > dr) dr = c; break; }
-                }
-                for (int c = depth_image.cols / 3; c < 2 * depth_image.cols / 3; ++c)
-                {
-                    for (int r = 0; r < depth_image.rows; ++r)
-                        if (depth_image.at<uint16_t>(r, c) != 0) { if (r < dt) dt = r; break; }
-                    for (int r = depth_image.rows - 1; r >= 0; --r)
-                        if (depth_image.at<uint16_t>(r, c) != 0) { if (r > db) db = r; break; }
-                }
-                if (dl < dr && dt < db)
-                    depth_fov_rect = cv::Rect(dl, dt, dr - dl, db - dt);
-                depth_fov_initialized = true;
-                std::cout << "[INFO] Depth FOV rect initialized: "
-                          << depth_fov_rect.x << "," << depth_fov_rect.y
-                          << " " << depth_fov_rect.width << "x" << depth_fov_rect.height << "\n";
-            }
-            if (depth_fov_initialized)
-            {
-                cv::rectangle(block_vis, depth_fov_rect,
-                              cv::Scalar(0, 255, 255), 2);
-                cv::putText(block_vis, "Depth FOV", cv::Point(depth_fov_rect.x + 5, depth_fov_rect.y + 25),
-                            cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 255), 2);
             }
 
             cv::imshow("Final Block", block_vis);
