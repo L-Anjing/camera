@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <memory>
 #include <string>
-#include <mutex>
 
 
 
@@ -61,7 +60,6 @@ private:
     // ── IMU ──
     k4a_imu_sample_t last_imu_;
     bool imu_started_ = false;
-    mutable std::mutex imu_mutex_;
 
     // 设备状态
     int frame_count = 0;
@@ -136,7 +134,7 @@ public:
     // ── IMU ──
     void start_imu();
     /// 读取最新 IMU 陀螺仪角速度 (rad/s, 相机坐标系)
-    Eigen::Vector3f get_gyro() const;
+    Eigen::Vector3f get_gyro();
 
     void Save_Image(int amount, std::string output_dir);
 

@@ -752,21 +752,14 @@ void K4a::start_imu()
     }
 }
 
-Eigen::Vector3f K4a::get_gyro() const
+Eigen::Vector3f K4a::get_gyro()
 {
-    if (!imu_started_)
-        return Eigen::Vector3f::Zero();
+    if (!imu_started_) return Eigen::Vector3f::Zero();
 
-    // 快速轮询到最新一帧 IMU 数据
-    // IMU 输出频率 1.6kHz, 所以单次 0 超时循环很快
     k4a_imu_sample_t sample;
     while (device.get_imu_sample(&sample, std::chrono::milliseconds(0)))
-    {
-        std::lock_guard<std::mutex> lock(imu_mutex_);
         last_imu_ = sample;
-    }
 
-    std::lock_guard<std::mutex> lock(imu_mutex_);
     return Eigen::Vector3f(last_imu_.gyro_sample.xyz.x,
                            last_imu_.gyro_sample.xyz.y,
                            last_imu_.gyro_sample.xyz.z);
