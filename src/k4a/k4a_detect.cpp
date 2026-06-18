@@ -132,7 +132,12 @@ int main(int argc, char **argv)
 
                         if (best_label != results.detection.class_label)
                         {
-                            bbox.cls_ID = best_label;
+                            // YOLO class_label → BlockClass enum (1=R1,2=R2r,3=R2f)
+                            int mapped;
+                            if (best_label == 1) mapped = 1;
+                            else if (best_label >= 2 && best_label <= 16) mapped = 2;
+                            else mapped = 3;
+                            bbox.cls_ID = mapped;
                             bbox.cls_name = "NORMAL";
                         }
                     }
