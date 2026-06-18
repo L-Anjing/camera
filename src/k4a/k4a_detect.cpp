@@ -1,6 +1,7 @@
 #include <iostream>
 #include <csignal>
 #include <chrono>
+#include <iomanip>
 
 #include "utils/block_recognizer.hpp"
 #include "utils/kalman_tracker.hpp"
@@ -63,6 +64,7 @@ int main(int argc, char **argv)
 
         while (!stop_flag)
         {
+            auto frame_start = std::chrono::steady_clock::now();
             cv::Mat color_image, depth_image;
             cv::Mat gray, gray3;
 
@@ -160,13 +162,16 @@ int main(int argc, char **argv)
 
                     if (frame_id++ % 5 == 0 )
                     {
+                        auto now = std::chrono::steady_clock::now();
+                        float ms = std::chrono::duration<float>(now - frame_start).count();
                         std::cout << "Block Class: " << class_name
                                   << " Confidence: " << results.confidence
                                   << " Center: ["
                                   << bbox.center.x << ", "
                                   << bbox.center.y << ", "
                                   << bbox.center.z << ", "
-                                  << bbox.principal_dir[0] << "]\n";
+                                  << bbox.principal_dir[0] << "] Time: "
+                                  << std::fixed << std::setprecision(3) << ms << "s\n";
                     }
 
                     std_msgs::msg::String msg;
