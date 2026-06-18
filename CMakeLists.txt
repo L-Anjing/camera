@@ -70,7 +70,7 @@ set(COMMON_LIBS
 )
 
 # ---- 源文件定义 ----
-set(COMMON_SOURCES src/common/camera_params.cpp src/utils/vision_draw.cpp)
+set(COMMON_SOURCES src/common/camera_params.cpp src/utils/vision_draw.cpp src/utils/kalman_tracker.cpp)
 set(RS_SOURCES ${COMMON_SOURCES} src/realsense/rs_detect.cpp src/realsense/realsense.cpp src/utils/myinfer.cpp src/yolo/yolo.cu)
 set(K4A_DETECT_SOURCES ${COMMON_SOURCES} src/k4a/camera_k4a.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/k4a/k4a_detect.cpp src/yolo/yolo.cu)
 set(INSIGHT9_DETECT_SOURCES ${COMMON_SOURCES} src/insight9/camera_insight9.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/insight9/insight9_detect.cpp src/yolo/yolo.cu)

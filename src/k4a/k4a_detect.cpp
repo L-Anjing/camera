@@ -1,8 +1,9 @@
 #include <iostream>
 #include <csignal>
-#include <algorithm>
+#include <chrono>
 
 #include "utils/block_recognizer.hpp"
+#include "utils/kalman_tracker.hpp"
 #include "k4a/camera_k4a.hpp"
 #include "utils/myinfer.hpp"
 #include "utils/vision_draw.hpp"
@@ -56,12 +57,9 @@ int main(int argc, char **argv)
 
         int frame_id = 0;
 
-        // ── 中值滤波（窗口=5）+ 离群抑制 ───────────────
-        struct {
-            float x[5], y[5], z[5];
-            int n = 0, idx = 0;
-        } med;
-        constexpr float OUTLIER_DIST = 0.10f;     // 10cm 离群阈值
+        // ── 卡尔曼滤波 + 航迹管理 ─────────────────────
+        TrackManager track_manager;
+        auto prev_time = std::chrono::steady_clock::now();
 
         while (!stop_flag)
         {
@@ -139,50 +137,20 @@ int main(int argc, char **argv)
                         }
                     }
 
-                    // ── 中值滤波（窗口=5）+ 离群抑制 ─────────
-                    cv::Point3f out_center = bbox.center;
-                    if (bbox.center.x == 0.0f && bbox.center.y == 0.0f && bbox.center.z == 0.0f)
-                    {
-                        med.n = 0;   // 零值 → 重置
-                    }
-                    else
-                    {
-                        // 离群检测（有历史时）
-                        if (med.n >= 3)
-                        {
-                            int prev = (med.idx - 1 + 5) % 5;
-                            float dx = bbox.center.x - med.x[prev];
-                            float dy = bbox.center.y - med.y[prev];
-                            float dz = bbox.center.z - med.z[prev];
-                            if (std::sqrt(dx*dx + dy*dy + dz*dz) > OUTLIER_DIST)
-                            {
-                                goto skip_push;
-                            }
-                        }
-                        // 入队
-                        med.x[med.idx] = bbox.center.x;
-                        med.y[med.idx] = bbox.center.y;
-                        med.z[med.idx] = bbox.center.z;
-                        med.idx = (med.idx + 1) % 5;
-                        if (med.n < 5) ++med.n;
+                    // ── 卡尔曼滤波 + 航迹管理 ─────────────
+                    auto now = std::chrono::steady_clock::now();
+                    float dt = std::chrono::duration<float>(now - prev_time).count();
+                    prev_time = now;
+                    dt = std::min(dt, 0.5f);  // 限幅，防止长时间卡顿时跳变
 
-                        // 取中值（窗口≥3 时开始输出）
-                        if (med.n >= 3)
-                        {
-                            float cx[5], cy[5], cz[5];
-                            std::copy_n(med.x, med.n, cx);
-                            std::copy_n(med.y, med.n, cy);
-                            std::copy_n(med.z, med.n, cz);
-                            std::sort(cx, cx + med.n);
-                            std::sort(cy, cy + med.n);
-                            std::sort(cz, cz + med.n);
-                            out_center.x = cx[med.n / 2];
-                            out_center.y = cy[med.n / 2];
-                            out_center.z = cz[med.n / 2];
-                        }
-                    }
-                    skip_push:
-                    bbox.center = out_center;
+                    Eigen::Vector3f gyro = k4a_device.get_gyro();
+                    Eigen::Vector3f raw_center(bbox.center.x, bbox.center.y, bbox.center.z);
+                    Eigen::Vector3f kf_center = track_manager.process(
+                        raw_center, dt, bbox.cls_ID, results.confidence, &gyro);
+
+                    bbox.center.x = kf_center.x();
+                    bbox.center.y = kf_center.y();
+                    bbox.center.z = kf_center.z();
                     bbox.principal_dir[0] = std::atan2(bbox.center.y, bbox.center.x);
 
                     if (frame_id++ % 5 == 0 )

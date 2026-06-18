@@ -222,22 +222,46 @@ do
     log "Azure Kinect detected"
 
     ################################################
-    # 启动launch
+    # 启动launch + 日志监控
     ################################################
 
-    log "Launching camera_bridge..."
+    LAUNCH_LOG=$(mktemp /tmp/camera_launch_XXXX.log)
 
-    ros2 launch camera_bridge k4a_and_serial.launch.py &
+    log "Launching camera_bridge... (log=$LAUNCH_LOG)"
+
+    ros2 launch camera_bridge k4a_and_serial.launch.py \
+        > "$LAUNCH_LOG" 2>&1 &
     LAUNCH_PID=$!
 
     log "Launch PID=$LAUNCH_PID"
 
     ################################################
-    # 等待launch结束
+    # 实时监控: K4A open error → 立即重启
     ################################################
 
-    wait "$LAUNCH_PID"
-    EXIT_CODE=$?
+    EXIT_CODE=0
+    while true
+    do
+        if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+            wait "$LAUNCH_PID"
+            EXIT_CODE=$?
+            break
+        fi
+
+        # 检测 K4A open 错误 (来源: camera_k4a.cpp Open())
+        if grep -q "Open K4a Device Error\|Failed to open K4a device" \
+            "$LAUNCH_LOG" 2>/dev/null
+        then
+            log "K4A open error detected, restarting..."
+            cleanup_launch
+            EXIT_CODE=1
+            break
+        fi
+
+        sleep 0.5
+    done
+
+    rm -f "$LAUNCH_LOG"
 
     ################################################
     # 如果是用户Ctrl+C

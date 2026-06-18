@@ -125,6 +125,7 @@ void K4a::Configuration()
     config.depth_mode = K4A_DEPTH_MODE_NFOV_UNBINNED;
     config.synchronized_images_only = true;
     device.start_cameras(&config);
+    start_imu();    // 启动 IMU (陀螺仪 + 加速度计)
     COUT_GREEN_START;
     cout << "Start Device Success!" << endl;
     COUT_COLOR_END;
@@ -726,4 +727,47 @@ void K4a::capture_images(const std::string &output_path_prefix,
     }
 
     cv::destroyWindow("K4A Image Capture");
+}
+
+// ═══════════════════════════════════════════════════════
+//  IMU
+// ═══════════════════════════════════════════════════════
+
+void K4a::start_imu()
+{
+    try
+    {
+        device.start_imu();
+        imu_started_ = true;
+        COUT_GREEN_START;
+        cout << "Start IMU Success!" << endl;
+        COUT_COLOR_END;
+    }
+    catch (const std::exception &e)
+    {
+        COUT_RED_START;
+        cerr << "Start IMU Failed: " << e.what() << endl;
+        COUT_COLOR_END;
+        imu_started_ = false;
+    }
+}
+
+Eigen::Vector3f K4a::get_gyro() const
+{
+    if (!imu_started_)
+        return Eigen::Vector3f::Zero();
+
+    // 快速轮询到最新一帧 IMU 数据
+    // IMU 输出频率 1.6kHz, 所以单次 0 超时循环很快
+    k4a_imu_sample_t sample;
+    while (device.get_imu_sample(&sample, std::chrono::milliseconds(0)))
+    {
+        std::lock_guard<std::mutex> lock(imu_mutex_);
+        last_imu_ = sample;
+    }
+
+    std::lock_guard<std::mutex> lock(imu_mutex_);
+    return Eigen::Vector3f(last_imu_.gyro_sample.xyz.x,
+                           last_imu_.gyro_sample.xyz.y,
+                           last_imu_.gyro_sample.xyz.z);
 }

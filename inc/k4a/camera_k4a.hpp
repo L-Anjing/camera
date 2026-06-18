@@ -29,6 +29,7 @@
 #include <unistd.h>
 #include <memory>
 #include <string>
+#include <mutex>
 
 
 
@@ -56,6 +57,11 @@ private:
     // 标定&转换
     k4a::calibration k4aCalibration;
     k4a::transformation k4aTransformation;
+
+    // ── IMU ──
+    k4a_imu_sample_t last_imu_;
+    bool imu_started_ = false;
+    mutable std::mutex imu_mutex_;
 
     // 设备状态
     int frame_count = 0;
@@ -98,6 +104,7 @@ public:
 
     // 相机→机器人旋转矩阵（用于方向坐标转换）
     const Eigen::Matrix3f &get_rotation() const { return m_params.rotation; }
+    const Eigen::Vector3f &get_translation() const { return m_params.translation; }
 
     void Image_to_Cv(cv::Mat &image_cv_color, cv::Mat &image_cv_depth);
 
@@ -125,6 +132,11 @@ public:
     Eigen::Vector3f compute_roi_normal(
         const cv::Mat &depth_image,
         const yolo::Box &face_box) const;
+
+    // ── IMU ──
+    void start_imu();
+    /// 读取最新 IMU 陀螺仪角速度 (rad/s, 相机坐标系)
+    Eigen::Vector3f get_gyro() const;
 
     void Save_Image(int amount, std::string output_dir);
 
