@@ -90,6 +90,7 @@ load_env()
 ##################################################
 
 LAUNCH_PID=""
+TAIL_PID=""
 STOP_REQUESTED=0
 
 ##################################################
@@ -98,6 +99,12 @@ STOP_REQUESTED=0
 
 cleanup_launch()
 {
+    # 终止 tail 进程
+    if [ -n "${TAIL_PID:-}" ]; then
+        kill "$TAIL_PID" 2>/dev/null || true
+        TAIL_PID=""
+    fi
+
     if [ -z "${LAUNCH_PID:-}" ]; then
         return
     fi
@@ -227,9 +234,9 @@ do
         > "$LAUNCH_LOG" 2>&1 &
     LAUNCH_PID=$!
 
-    # 实时打印 launch 输出到终端
+    # 实时打印 launch 输出到终端（不覆盖 LAUNCH_PID）
     tail --pid="$LAUNCH_PID" -f "$LAUNCH_LOG" &
-    LAUNCH_PID=$!
+    TAIL_PID=$!
 
     log "Launch PID=$LAUNCH_PID"
 
