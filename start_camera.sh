@@ -253,9 +253,8 @@ do
             break
         fi
 
-        # 检测 K4A open 错误 (来源: camera_k4a.cpp Open())
-        if grep -q "Open K4a Device Error\|Failed to open K4a device" \
-            "$LAUNCH_LOG" 2>/dev/null
+        # 检测任意 K4A error（包括 USB 溢出、open 失败等运行时错误）
+        if grep -qi "\[error\]" "$LAUNCH_LOG" 2>/dev/null
         then
             log "K4A open error detected, restarting..."
             cleanup_launch
