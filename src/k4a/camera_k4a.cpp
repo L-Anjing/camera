@@ -489,68 +489,6 @@ void K4a::Value_Depth_to_Pcl(
               << cloud.size() << std::endl;
 }
 
-// ── PCA 平面拟合：从 face ROI 深度点云求法向量 ──────
-// 返回相机坐标系下的单位法向量（指向相机为正）
-Eigen::Vector3f K4a::compute_roi_normal(
-    const cv::Mat &depth_image,
-    const yolo::Box &face_box) const
-{
-    CameraIntrinsics intr = get_color_intrinsics();
-    const float fx = intr.fx, fy = intr.fy;
-    const float cx = intr.cx, cy = intr.cy;
-    const float depth_scale = 0.001f;
-
-    const int L = std::max(0, static_cast<int>(face_box.left));
-    const int T = std::max(0, static_cast<int>(face_box.top));
-    const int R = std::min(depth_image.cols, static_cast<int>(face_box.right));
-    const int B = std::min(depth_image.rows, static_cast<int>(face_box.bottom));
-
-    // 收集有效 3D 点（相机坐标系）
-    std::vector<Eigen::Vector3f> pts;
-    pts.reserve((R - L) * (B - T) / 4);
-
-    for (int py = T; py < B; ++py)
-    {
-        for (int px = L; px < R; ++px)
-        {
-            uint16_t raw = depth_image.at<uint16_t>(py, px);
-            if (raw == 0) continue;
-            float d = raw * depth_scale;
-            if (d <= m_params.min_dist || d > m_params.max_dist) continue;
-
-            float X = (px - cx) * d / fx;
-            float Y = (py - cy) * d / fy;
-            float Z = d;
-            pts.emplace_back(X, Y, Z);
-        }
-    }
-
-    if (pts.size() < 10)
-        return Eigen::Vector3f::UnitZ();   // 点太少，回退到默认
-
-    // 质心
-    Eigen::Vector3f cen = Eigen::Vector3f::Zero();
-    for (const auto &p : pts) cen += p;
-    cen /= static_cast<float>(pts.size());
-
-    // 协方差矩阵 3×3
-    Eigen::Matrix3f cov = Eigen::Matrix3f::Zero();
-    for (const auto &p : pts)
-    {
-        Eigen::Vector3f d = p - cen;
-        cov += d * d.transpose();
-    }
-
-    // 特征分解 → 最小特征值对应的特征向量 = 法向量
-    Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eig(cov);
-    Eigen::Vector3f normal = eig.eigenvectors().col(0);
-    normal.normalize();
-
-    return normal;
-}
-
-// ═══════════════════════════════════════════════════════
-//  RANSAC 平面拟合 + 射线求交法
 // ═══════════════════════════════════════════════════════
 
 Eigen::Vector3f K4a::compute_precise_center(
@@ -564,16 +502,16 @@ Eigen::Vector3f K4a::compute_precise_center(
     const float depth_scale = 0.001f;
 
     // ── 1. 从 block 框收集点云（步长 2 加速） ──
-    const int L = std::max(0, (int)block_box.left);
-    const int T = std::max(0, (int)block_box.top);
-    const int R = std::min(depth_image.cols, (int)block_box.right);
-    const int B = std::min(depth_image.rows, (int)block_box.bottom);
+    const int roi_l = std::max(0, (int)block_box.left);
+    const int roi_t = std::max(0, (int)block_box.top);
+    const int roi_r = std::min(depth_image.cols, (int)block_box.right);
+    const int roi_b = std::min(depth_image.rows, (int)block_box.bottom);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    cloud->reserve(((R - L) / 2) * ((B - T) / 2));
+    cloud->reserve(((roi_r - roi_l) / 2) * ((roi_b - roi_t) / 2));
 
-    for (int py = T; py < B; py += 2)
-        for (int px = L; px < R; px += 2)
+    for (int py = roi_t; py < roi_b; py += 2)
+        for (int px = roi_l; px < roi_r; px += 2)
         {
             uint16_t raw = depth_image.at<uint16_t>(py, px);
             if (raw == 0) continue;
