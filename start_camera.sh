@@ -4,65 +4,55 @@ set -uo pipefail
 
 PIDFILE=/tmp/camera_watchdog.pid
 
-SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
-
 ##################################################
-# 打开独立终端
+# 状态管理
 ##################################################
 
-if [ "${1:-}" != "--run" ]; then
+if [ "${1:-}" = "--stop" ]; then
 
-    if [ "${1:-}" = "--stop" ]; then
+    if [ -f "$PIDFILE" ]; then
+        PID=$(cat "$PIDFILE")
 
-        if [ -f "$PIDFILE" ]; then
-            PID=$(cat "$PIDFILE")
+        echo "Stopping watchdog PID=$PID"
 
-            echo "Stopping watchdog PID=$PID"
+        kill -TERM "$PID" 2>/dev/null || true
 
-            kill -TERM "$PID" 2>/dev/null
-
-            rm -f "$PIDFILE"
-        else
-            echo "Watchdog not running"
-        fi
-
-        exit 0
+        rm -f "$PIDFILE"
+    else
+        echo "Watchdog not running"
     fi
 
-    if [ "${1:-}" = "--status" ]; then
-
-        if [ -f "$PIDFILE" ]; then
-
-            PID=$(cat "$PIDFILE")
-
-            if kill -0 "$PID" 2>/dev/null; then
-                echo "Running PID=$PID"
-            else
-                echo "PID file exists but process dead"
-            fi
-
-        else
-            echo "Not running"
-        fi
-
-        exit 0
-    fi
-
-    if [ -n "${DISPLAY:-}" ] && command -v gnome-terminal >/dev/null 2>&1; then
-        gnome-terminal \
-            --title="Azure Kinect Watchdog" \
-            -- bash -lc "'$SCRIPT_PATH' --run; exec bash"
-        exit 0
-    fi
-
-    exec "$SCRIPT_PATH" --run
+    exit 0
 fi
+
+if [ "${1:-}" = "--status" ]; then
+
+    if [ -f "$PIDFILE" ]; then
+
+        PID=$(cat "$PIDFILE")
+
+        if kill -0 "$PID" 2>/dev/null; then
+            echo "Running PID=$PID"
+        else
+            echo "PID file exists but process dead"
+        fi
+
+    else
+        echo "Not running"
+    fi
+
+    exit 0
+fi
+
+##################################################
+# PID
+##################################################
+
+echo $$ > "$PIDFILE"
 
 ##################################################
 # 日志
 ##################################################
-
-echo $$ > "$PIDFILE"
 
 log()
 {
@@ -94,14 +84,14 @@ TAIL_PID=""
 STOP_REQUESTED=0
 
 ##################################################
-# 清理当前launch
+# 清理
 ##################################################
 
 cleanup_launch()
 {
-    # 终止 tail 进程
     if [ -n "${TAIL_PID:-}" ]; then
         kill "$TAIL_PID" 2>/dev/null || true
+        wait "$TAIL_PID" 2>/dev/null || true
         TAIL_PID=""
     fi
 
@@ -114,7 +104,7 @@ cleanup_launch()
         return
     fi
 
-    log "Stopping camera launch PID=$LAUNCH_PID"
+    log "Stopping launch PID=$LAUNCH_PID"
 
     PGID=$(ps -o pgid= "$LAUNCH_PID" 2>/dev/null | tr -d ' ')
 
@@ -122,16 +112,17 @@ cleanup_launch()
 
         kill -TERM -- "-$PGID" 2>/dev/null || true
 
-        for i in {1..20}
+        for i in {1..10}
         do
             if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
                 break
             fi
 
-            sleep 0.1
+            sleep 0.05
         done
 
         if kill -0 "$LAUNCH_PID" 2>/dev/null; then
+            log "Force killing launch group $PGID"
             kill -KILL -- "-$PGID" 2>/dev/null || true
         fi
     fi
@@ -140,7 +131,7 @@ cleanup_launch()
 }
 
 ##################################################
-# Ctrl+C处理
+# Ctrl+C
 ##################################################
 
 shutdown()
@@ -159,34 +150,31 @@ shutdown()
 trap shutdown SIGINT SIGTERM
 
 ##################################################
-# 等待设备
+# 等待Kinect
 ##################################################
 
 wait_camera()
 {
     while true
     do
-
-        if [ "$STOP_REQUESTED" = "1" ]; then
-            return 1
-        fi
+        [ "$STOP_REQUESTED" = "1" ] && return 1
 
         if [ -e /dev/azurekinect ]; then
             return 0
         fi
 
-        sleep 0.2
+        sleep 0.05
     done
 }
 
 ##################################################
-# 启动信息
+# 启动
 ##################################################
 
-log "========================================="
+log "======================================"
 log "Azure Kinect Watchdog Started"
 log "PID=$$"
-log "========================================="
+log "======================================"
 
 ##################################################
 # 主循环
@@ -195,9 +183,7 @@ log "========================================="
 while true
 do
 
-    if [ "$STOP_REQUESTED" = "1" ]; then
-        break
-    fi
+    [ "$STOP_REQUESTED" = "1" ] && break
 
     ################################################
     # ROS环境
@@ -206,7 +192,7 @@ do
     if ! load_env; then
         log "ROS environment load failed"
 
-        sleep 1
+        sleep 2
         continue
     fi
 
@@ -223,69 +209,88 @@ do
     log "Azure Kinect detected"
 
     ################################################
-    # 启动launch + 日志监控
+    # 启动launch
     ################################################
 
     LAUNCH_LOG=$(mktemp /tmp/camera_launch_XXXX.log)
 
-    log "Launching camera_bridge... (log=$LAUNCH_LOG)"
+    log "Launching camera_bridge"
 
     ros2 launch camera_bridge k4a_and_serial.launch.py \
         > "$LAUNCH_LOG" 2>&1 &
-    LAUNCH_PID=$!
 
-    # 实时打印 launch 输出到终端（不覆盖 LAUNCH_PID）
-    tail --pid="$LAUNCH_PID" -f "$LAUNCH_LOG" &
-    TAIL_PID=$!
+    LAUNCH_PID=$!
 
     log "Launch PID=$LAUNCH_PID"
 
+    tail -n 0 -f "$LAUNCH_LOG" &
+    TAIL_PID=$!
+
     ################################################
-    # 实时监控: K4A open error → 立即重启
+    # 监控
     ################################################
 
     EXIT_CODE=0
+
     while true
     do
+
+        [ "$STOP_REQUESTED" = "1" ] && break
+
+        ################################################
+        # launch退出
+        ################################################
+
         if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+
             wait "$LAUNCH_PID"
             EXIT_CODE=$?
+
+            log "Launch exited code=$EXIT_CODE"
+
             break
         fi
 
-        # 检测任意 K4A error（包括 USB 溢出、open 失败等运行时错误）
-        if grep -qi "\[error\]" "$LAUNCH_LOG" 2>/dev/null
-        then
-            log "K4A open error detected, restarting..."
-            cleanup_launch
+        ################################################
+        # Kinect被拔掉
+        ################################################
+
+        if [ ! -e /dev/azurekinect ]; then
+
+            log "Azure Kinect disconnected"
+
             EXIT_CODE=1
+
             break
         fi
 
-        sleep 0.5
+        ################################################
+        # K4A错误
+        ################################################
+
+        if tail -n 50 "$LAUNCH_LOG" | \
+            grep -qiE "(failed to open|usb command overflow|k4a failed|depth engine|device failed|\[error\])"
+        then
+            log "K4A error detected"
+
+            EXIT_CODE=1
+
+            break
+        fi
+
+        sleep 0.05
+
     done
-
-    rm -f "$LAUNCH_LOG"
-
-    ################################################
-    # 如果是用户Ctrl+C
-    ################################################
-
-    if [ "$STOP_REQUESTED" = "1" ]; then
-        break
-    fi
-
-    ################################################
-    # launch异常退出
-    ################################################
-
-    log "Launch exited code=$EXIT_CODE"
 
     cleanup_launch
 
-    log "Restart after 1 second..."
+    rm -f "$LAUNCH_LOG"
 
-    sleep 1
+    [ "$STOP_REQUESTED" = "1" ] && break
+
+    log "Restart after 0.1 second..."
+
+    sleep 0.1
 
 done
 
