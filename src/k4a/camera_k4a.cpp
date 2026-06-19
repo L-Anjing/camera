@@ -549,6 +549,86 @@ Eigen::Vector3f K4a::compute_roi_normal(
     return normal;
 }
 
+// ═══════════════════════════════════════════════════════
+//  RANSAC 平面拟合 + 射线求交法
+// ═══════════════════════════════════════════════════════
+
+Eigen::Vector3f K4a::compute_precise_center(
+    const cv::Mat &depth_image,
+    const yolo::Box &block_box,
+    const yolo::Box &face_box,
+    Eigen::Vector3f *out_normal_cam) const
+{
+    CameraIntrinsics intr = get_color_intrinsics();
+    const float fx = intr.fx, fy = intr.fy, cx = intr.cx, cy = intr.cy;
+    const float depth_scale = 0.001f;
+
+    // ── 1. 从 block 框收集点云（步长 2 加速） ──
+    const int L = std::max(0, (int)block_box.left);
+    const int T = std::max(0, (int)block_box.top);
+    const int R = std::min(depth_image.cols, (int)block_box.right);
+    const int B = std::min(depth_image.rows, (int)block_box.bottom);
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    cloud->reserve(((R - L) / 2) * ((B - T) / 2));
+
+    for (int py = T; py < B; py += 2)
+        for (int px = L; px < R; px += 2)
+        {
+            uint16_t raw = depth_image.at<uint16_t>(py, px);
+            if (raw == 0) continue;
+            float d = raw * depth_scale;
+            if (d <= m_params.min_dist || d > m_params.max_dist) continue;
+            cloud->emplace_back((px - cx) * d / fx,
+                                (py - cy) * d / fy,
+                                d);
+        }
+
+    if (cloud->size() < 20) return Eigen::Vector3f::Zero();
+
+    // ── 2. RANSAC 平面拟合 ──
+    pcl::ModelCoefficients::Ptr coeff(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    pcl::SACSegmentation<pcl::PointXYZ> seg;
+    seg.setOptimizeCoefficients(true);
+    seg.setModelType(pcl::SACMODEL_PLANE);
+    seg.setMethodType(pcl::SAC_RANSAC);
+    seg.setDistanceThreshold(0.02);               // 2cm 容差
+    seg.setMaxIterations(200);
+    seg.setInputCloud(cloud);
+    seg.segment(*inliers, *coeff);
+
+    if (inliers->indices.size() < 10 || coeff->values.size() < 4)
+        return Eigen::Vector3f::Zero();
+
+    float A = coeff->values[0];
+    float B = coeff->values[1];
+    float C = coeff->values[2];
+    float D = coeff->values[3];
+
+    // 法向量（相机坐标系）
+    Eigen::Vector3f normal(A, B, C);
+    normal.normalize();
+    if (out_normal_cam) *out_normal_cam = normal;
+
+    // ── 3. 射线求交 ──
+    float u = (face_box.left + face_box.right) / 2.0f;
+    float v = (face_box.top + face_box.bottom) / 2.0f;
+
+    float dx = (u - cx) / fx;
+    float dy = (v - cy) / fy;
+    float dz = 1.0f;
+
+    float denom = A * dx + B * dy + C * dz;
+    if (std::abs(denom) < 1e-6f) return Eigen::Vector3f::Zero();
+
+    float t = -D / denom;
+    if (t <= 0) return Eigen::Vector3f::Zero();
+
+    // 相机坐标系下的精确中心
+    return Eigen::Vector3f(t * dx, t * dy, t);
+}
+
 void K4a::record_videos(const std::string &output_path_prefix, const std::string &obj)
 {
     cv::VideoWriter writer;

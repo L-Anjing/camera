@@ -21,6 +21,7 @@
 #include <pcl/common/common.h>
 #include <pcl/common/centroid.h>
 #include <pcl/common/eigen.h>
+#include <pcl/segmentation/sac_segmentation.h>
 
 #include <k4a/k4a.hpp>
 #include <k4a/k4a.h>
@@ -126,10 +127,15 @@ public:
         const k4a::image &depth_to_color,
         pcl::PointCloud<pcl::PointXYZ> &cloud);
 
-    // 从 face ROI 深度点云拟合平面法向量（相机坐标系，用于面选择）
-    Eigen::Vector3f compute_roi_normal(
+    // ── RANSAC 平面拟合 + 射线求交（替代以上两个函数）──
+    // 输入: depth, block_box, face_box
+    // 输出: 精确 3D 中心 (相机坐标系)
+    //       out_normal_cam 非空时返回拟合平面的法向量 (相机系)
+    Eigen::Vector3f compute_precise_center(
         const cv::Mat &depth_image,
-        const yolo::Box &face_box) const;
+        const yolo::Box &block_box,
+        const yolo::Box &face_box,
+        Eigen::Vector3f *out_normal_cam = nullptr) const;
 
     // ── IMU ──
     void start_imu();

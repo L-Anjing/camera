@@ -47,15 +47,6 @@ int main(int argc, char **argv)
 
         yolo::BoxArray detections;
 
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(
-            new pcl::PointCloud<pcl::PointXYZ>);
-        // 点云可视化初始化
-        // pcl::visualization::PCLVisualizer::Ptr viewer(
-        //     new pcl::visualization::PCLVisualizer("PointCloud Viewer"));
-
-        // viewer->setBackgroundColor(0, 0, 0);
-        // viewer->addCoordinateSystem(0.2);
-
         int frame_id = 0;
 
         // ── 卡尔曼滤波 + 航迹管理 ─────────────────────
@@ -79,9 +70,9 @@ int main(int argc, char **argv)
             cv::cvtColor(color_image, gray, cv::COLOR_BGR2GRAY);
             cv::cvtColor(gray, gray3, cv::COLOR_GRAY2BGR);
 
-            // YOLO 推理
+            // YOLO 推理（内部降采样到 640×640 letterbox 加速, 框已自动映射回原尺寸）
             detections.clear();
-            yolo.Single_Inference(gray3, detections);
+            yolo.Single_Inference_Letterbox(gray3, detections, 640);
 
             // YOLO Debug 显示
             cv::Mat yolo_vis = color_image.clone();
@@ -102,45 +93,38 @@ int main(int argc, char **argv)
                     // 绘制融合结果
                     vision::draw_block_result(block_vis, results);
 
-                    // 3D 计算（始终用 best_pattern — 几何最正面）
-                    BoundingBox3D bbox =
-                        k4a_device.Value_Block_to_Pcl(cloud, depth_image, results);
+                    // ── RANSAC 平面拟合 + 射线求交求 3D ──
+                    const Eigen::Matrix3f &Rmat = k4a_device.get_rotation();
+                    const Eigen::Vector3f &Tvec = k4a_device.get_translation();
+
+                    Eigen::Vector3f normal_cam;
+                    Eigen::Vector3f center_cam = k4a_device.compute_precise_center(
+                        depth_image, results.detection, results.best_pattern, &normal_cam);
+
+                    BoundingBox3D bbox;
                     const char *class_name = block_class_name(results.block_class);
+                    bbox.cls_ID = static_cast<int>(results.block_class);
+                    bbox.cls_name = class_name;
 
-                    // ── 面选择：PCA 拟合面法向量，选最正对机器人的面 ──
-                    // 预期方向 = 物体指向机器人原点 = -center_robot.normalized()
-                    if (results.candidates.size() > 1)
+                    if (center_cam.x() != 0 || center_cam.y() != 0 || center_cam.z() != 0)
                     {
-                        const Eigen::Matrix3f &R = k4a_device.get_rotation();
-                        Eigen::Vector3f dir_to_robot = -Eigen::Vector3f(
-                            bbox.center.x, bbox.center.y, bbox.center.z);
-                        dir_to_robot.normalize();
+                        // 转到机器人系
+                        Eigen::Vector3f center_robot = Rmat * center_cam + Tvec;
+                        bbox.center.x = center_robot.x();
+                        bbox.center.y = center_robot.y();
+                        bbox.center.z = center_robot.z();
 
-                        int best_label = results.detection.class_label;
-                        float best_dot = -1.0f;
+                        // 法向量校验（面是否正对机器人）
+                        Eigen::Vector3f n_robot = Rmat * normal_cam;
+                        Eigen::Vector3f dir_to_robot = -center_robot.normalized();
+                        float dot = std::abs(n_robot.dot(dir_to_robot));
 
-                        for (const auto &c : results.candidates)
+                        // 如果法向量与预期方向偏差大 → 零值输出
+                        if (dot < 0.5f)
                         {
-                            Eigen::Vector3f n_cam = k4a_device.compute_roi_normal(
-                                depth_image, c.box);
-                            Eigen::Vector3f n_robot = R * n_cam;     // 转到机器人系
-                            float d = std::abs(n_robot.dot(dir_to_robot));
-                            if (d > best_dot)
-                            {
-                                best_dot = d;
-                                best_label = c.class_label;
-                            }
-                        }
-
-                        if (best_label != results.detection.class_label)
-                        {
-                            // YOLO class_label → BlockClass enum (1=R1,2=R2r,3=R2f)
-                            int mapped;
-                            if (best_label == 1) mapped = 1;
-                            else if (best_label >= 2 && best_label <= 16) mapped = 2;
-                            else mapped = 3;
-                            bbox.cls_ID = mapped;
-                            bbox.cls_name = "NORMAL";
+                            bbox.center.x = bbox.center.y = bbox.center.z = 0;
+                            std::cout << "[NORMAL] dot=" << dot
+                                      << " < 0.5, reject\n";
                         }
                     }
 

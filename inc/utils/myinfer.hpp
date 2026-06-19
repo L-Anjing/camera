@@ -73,6 +73,12 @@ public:
 
     void Single_Inference(cv::Mat &image, yolo::BoxArray &objs_out);
 
+    // 降采样推理: 将输入 resize 到 target_size×target_size (letterbox) 后推理,
+    // 检测框自动映射回原始图像坐标, 用于提高小分辨率设备上的推理速度.
+    // target_size: 默认 640, 不提供或 0 表示不降采样, 等同 Single_Inference.
+    void Single_Inference_Letterbox(cv::Mat &image, yolo::BoxArray &objs_out,
+                                    int target_size = 640);
+
 
 
     Yolo();

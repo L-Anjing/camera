@@ -141,6 +141,41 @@ void Yolo::Single_Inference(cv::Mat &image, yolo::BoxArray &objs_out)
   objs_out = objs;
 }
 
+// ── 降采样推理 (letterbox resize + 坐标映射) ──────────
+// 将输入 resize 到 target_size×target_size 后推理,
+// 检测框从 letterbox 坐标映射回原始图像坐标.
+void Yolo::Single_Inference_Letterbox(cv::Mat &image, yolo::BoxArray &objs_out,
+                                      int target_size)
+{
+  if (target_size <= 0 || target_size >= image.cols)
+  {
+    Single_Inference(image, objs_out);
+    return;
+  }
+
+  float scale = std::min((float)target_size / image.cols,
+                         (float)target_size / image.rows);
+  int rw = (int)(image.cols * scale);
+  int rh = (int)(image.rows * scale);
+  int pt = (target_size - rh) / 2;
+  int pl = (target_size - rw) / 2;
+
+  cv::Mat small;
+  cv::resize(image, small, cv::Size(rw, rh));
+  cv::Mat lb(target_size, target_size, image.type(), cv::Scalar(114, 114, 114));
+  small.copyTo(lb(cv::Rect(pl, pt, rw, rh)));
+
+  Single_Inference(lb, objs_out);
+
+  for (auto &d : objs_out)
+  {
+    d.left   = (d.left   - pl) / scale;
+    d.top    = (d.top    - pt) / scale;
+    d.right  = (d.right  - pl) / scale;
+    d.bottom = (d.bottom - pt) / scale;
+  }
+}
+
 Yolo::Yolo()
 {
   load_flag = 0;
