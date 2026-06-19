@@ -2,7 +2,6 @@
 
 set -uo pipefail
 
-LOG=~/camera_start.log
 PIDFILE=/tmp/camera_watchdog.pid
 
 SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
@@ -64,8 +63,6 @@ fi
 ##################################################
 
 echo $$ > "$PIDFILE"
-
-exec > >(tee -a "$LOG") 2>&1
 
 log()
 {
@@ -182,9 +179,6 @@ wait_camera()
 log "========================================="
 log "Azure Kinect Watchdog Started"
 log "PID=$$"
-log "Log file: $LOG"
-log "Stop command:"
-log "kill $$"
 log "========================================="
 
 ##################################################
@@ -231,6 +225,10 @@ do
 
     ros2 launch camera_bridge k4a_and_serial.launch.py \
         > "$LAUNCH_LOG" 2>&1 &
+    LAUNCH_PID=$!
+
+    # 实时打印 launch 输出到终端
+    tail --pid="$LAUNCH_PID" -f "$LAUNCH_LOG" &
     LAUNCH_PID=$!
 
     log "Launch PID=$LAUNCH_PID"
