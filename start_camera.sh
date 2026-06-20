@@ -106,25 +106,20 @@ cleanup_launch()
 
     log "Stopping launch PID=$LAUNCH_PID"
 
-    PGID=$(ps -o pgid= "$LAUNCH_PID" 2>/dev/null | tr -d ' ')
+    # 只杀 launch 进程本身，不影响其他程序
+    kill -TERM "$LAUNCH_PID" 2>/dev/null || true
 
-    if [ -n "$PGID" ]; then
-
-        kill -TERM -- "-$PGID" 2>/dev/null || true
-
-        for i in {1..10}
-        do
-            if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
-                break
-            fi
-
-            sleep 0.05
-        done
-
-        if kill -0 "$LAUNCH_PID" 2>/dev/null; then
-            log "Force killing launch group $PGID"
-            kill -KILL -- "-$PGID" 2>/dev/null || true
+    for i in {1..10}
+    do
+        if ! kill -0 "$LAUNCH_PID" 2>/dev/null; then
+            break
         fi
+        sleep 0.05
+    done
+
+    if kill -0 "$LAUNCH_PID" 2>/dev/null; then
+        log "Force killing launch PID=$LAUNCH_PID"
+        kill -KILL "$LAUNCH_PID" 2>/dev/null || true
     fi
 
     LAUNCH_PID=""
@@ -176,6 +171,15 @@ log "Azure Kinect Watchdog Started"
 log "PID=$$"
 log "======================================"
 
+log "Loading ROS environment..."
+
+if ! load_env; then
+    log "ROS environment load failed, exit"
+    exit 1
+fi
+
+log "ROS environment ready"
+
 ##################################################
 # 主循环
 ##################################################
@@ -184,17 +188,6 @@ while true
 do
 
     [ "$STOP_REQUESTED" = "1" ] && break
-
-    ################################################
-    # ROS环境
-    ################################################
-
-    if ! load_env; then
-        log "ROS environment load failed"
-
-        sleep 2
-        continue
-    fi
 
     ################################################
     # 等待设备
@@ -223,7 +216,7 @@ do
 
     log "Launch PID=$LAUNCH_PID"
 
-    tail -n 0 -f "$LAUNCH_LOG" &
+    stdbuf -oL tail -n 0 --pid="$LAUNCH_PID" -f "$LAUNCH_LOG" &
     TAIL_PID=$!
 
     ################################################
@@ -278,7 +271,7 @@ do
             break
         fi
 
-        sleep 0.05
+        sleep 0.2
 
     done
 
