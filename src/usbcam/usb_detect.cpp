@@ -21,8 +21,9 @@ int main(int argc, char **argv)
     auto node = rclcpp::Node::make_shared("usb_detector");
     signal(SIGINT, sigintHandler);
 
+    // 使用与 K4A 相同的 topic, 以便 serial 节点复用
     auto target_pub =
-        node->create_publisher<std_msgs::msg::String>("/usb/target_info", 10);
+        node->create_publisher<std_msgs::msg::String>("/k4a/target_info", 10);
 
     // ── 初始化 ──
     UsbCam cam;
@@ -103,11 +104,11 @@ int main(int argc, char **argv)
                     cv::Point(static_cast<int>(u) - 40, static_cast<int>(v) - 20),
                     cv::FONT_HERSHEY_SIMPLEX, 0.6, cv::Scalar(0, 255, 0), 2);
 
-                // ── 发布 ──
+                // ── 发布 (兼容 serial 节点: cls_ID, x, y, z, yaw, 无深度时 xyz=0) ──
                 std_msgs::msg::String msg;
                 std::stringstream ss;
                 ss << static_cast<int>(result.block_class) << ","
-                   << smooth_u << "," << smooth_v << ","
+                   << 0 << "," << 0 << "," << 0 << ","
                    << smooth_angle;
                 msg.data = ss.str();
                 target_pub->publish(msg);
@@ -125,9 +126,9 @@ int main(int argc, char **argv)
         }
         else
         {
-            // 无检测 → 发布零
+            // 无检测 → 发布零 (5字段, 兼容 serial)
             std_msgs::msg::String msg;
-            msg.data = "0,0,0,0";
+            msg.data = "0,0,0,0,0";
             target_pub->publish(msg);
         }
 

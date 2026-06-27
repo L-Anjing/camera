@@ -8,15 +8,17 @@ bool UsbCam::open(const std::string &config_path)
     {
         YAML::Node cfg = YAML::LoadFile(config_path);
 
-        fx_ = cfg["fx"].as<double>();
-        fy_ = cfg["fy"].as<double>();
-        cx_ = cfg["cx"].as<double>();
-        cy_ = cfg["cy"].as<double>();
+        auto intr = cfg["intrinsics"];
+        fx_ = intr["fx"].as<double>();
+        fy_ = intr["fy"].as<double>();
+        cx_ = intr["cx"].as<double>();
+        cy_ = intr["cy"].as<double>();
 
-        int device_id = cfg["device_id"].as<int>(0);
-        int width  = cfg["width"].as<int>(640);
-        int height = cfg["height"].as<int>(480);
-        int fps    = cfg["fps"].as<int>(30);
+        auto cam_cfg = cfg["camera"];
+        int device_id = cam_cfg["device_id"].as<int>(0);
+        int width  = cam_cfg["width"].as<int>(640);
+        int height = cam_cfg["height"].as<int>(480);
+        int fps    = cam_cfg["fps"].as<int>(30);
 
         cap_.open(device_id);
         if (!cap_.isOpened())
