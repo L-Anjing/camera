@@ -284,7 +284,7 @@ int main(int argc, char **argv)
     // ==================================================
     auto sub_camera =
         node->create_subscription<std_msgs::msg::String>(
-            "/k4a/target_info",
+            "/target_info",
             10,
             CameraCallback);
 

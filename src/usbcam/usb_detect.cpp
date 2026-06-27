@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 
     // 使用与 K4A 相同的 topic, 以便 serial 节点复用
     auto target_pub =
-        node->create_publisher<std_msgs::msg::String>("/k4a/target_info", 10);
+        node->create_publisher<std_msgs::msg::String>("/target_info", 10);
 
     // ── 初始化 ──
     UsbCam cam;

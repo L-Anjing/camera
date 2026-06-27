@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     signal(SIGINT, sigintHandler);
 
     auto target_pub =
-        node->create_publisher<std_msgs::msg::String>("/k4a/target_info", 10);
+        node->create_publisher<std_msgs::msg::String>("/target_info", 10);
 
     try
     {
