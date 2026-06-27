@@ -88,6 +88,13 @@ target_compile_options(insight9_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=
 ament_target_dependencies(insight9_detect rclcpp std_msgs sensor_msgs cv_bridge image_transport)
 target_link_libraries(insight9_detect ${COMMON_LIBS})
 
+# ---- USB Camera Detect Node ----
+set(USB_DETECT_SOURCES ${COMMON_SOURCES} src/usbcam/usbcam.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/usbcam/usb_detect.cpp src/yolo/yolo.cu)
+add_executable(usb_detect ${USB_DETECT_SOURCES})
+target_compile_options(usb_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+ament_target_dependencies(usb_detect rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+target_link_libraries(usb_detect ${COMMON_LIBS})
+
 # ---- K4A Capture Images Node ----
 add_executable(k4a_capture_images
     src/k4a/k4a_capture_images.cpp
@@ -119,6 +126,7 @@ set_target_properties(k4a_serial_node PROPERTIES
 install(TARGETS
     k4a_detect
     insight9_detect
+    usb_detect
     k4a_capture_images
     rs_viewer
     k4a_serial_node
