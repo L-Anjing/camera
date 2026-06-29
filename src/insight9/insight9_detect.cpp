@@ -3,6 +3,7 @@
 
 #include "utils/block_recognizer.hpp"
 #include "insight9/camera_insight9.hpp"
+#include "utils/image_preprocess.hpp"
 #include "utils/myinfer.hpp"
 #include "utils/vision_draw.hpp"
 #include <rclcpp/rclcpp.hpp>
@@ -20,6 +21,8 @@ int main(int argc, char **argv)
     rclcpp::init(argc, argv);
     auto node = rclcpp::Node::make_shared("insight9_detector");
     signal(SIGINT, sigintHandler);
+
+    RCLCPP_INFO(node->get_logger(), "Inference input: fixed grayscale");
 
     auto target_pub =
         node->create_publisher<std_msgs::msg::String>("/insight9/target_info", 10);
@@ -71,7 +74,6 @@ int main(int argc, char **argv)
         while (!stop_flag)
         {
             cv::Mat color_image, depth_image;
-            cv::Mat gray, gray3;
 
             // 尝试获取图像，超时则continue
             if (!insight9_device->Image_to_Cv(color_image, depth_image))
@@ -107,12 +109,8 @@ int main(int argc, char **argv)
                 continue;
             }
 
-            // 转换为灰度图用于YOLO推理
-            cv::cvtColor(color_image, gray, cv::COLOR_BGR2GRAY);
-            cv::cvtColor(gray, gray3, cv::COLOR_GRAY2BGR);
-
-            // YOLO 推理
-            yolo.Single_Inference(gray3, detections);
+            cv::Mat infer_image = vision::build_infer_input(color_image);
+            yolo.Single_Inference(infer_image, detections);
 
             // YOLO Debug 显示（主线程安全）
             if (ENABLE_DEBUG_DISPLAY)

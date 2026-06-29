@@ -1,10 +1,12 @@
 #include "utils/vision_draw.hpp"
 #include "utils/myinfer.hpp" // yolo_labels, random_color
 
+#include <algorithm>
+
 namespace vision
 {
 
-    // Block 语义颜色（核心）
+    // block 语义颜色
     static inline cv::Scalar block_color(BlockClass c)
     {
         switch (c)
@@ -22,7 +24,7 @@ namespace vision
 
     static inline cv::Scalar class_color(int class_id)
     {
-        // 预定义高对比 BGR 颜色（可扩展到 32 类）
+        // YOLO 类别颜色表
         static const cv::Scalar color_table[32] = {
             {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0}, {255, 0, 255}, {0, 255, 255}, {128, 0, 0}, {0, 128, 0}, {0, 0, 128}, {128, 128, 0}, {128, 0, 128}, {0, 128, 128}, {64, 0, 0}, {0, 64, 0}, {0, 0, 64}, {64, 64, 0}, {64, 0, 64}, {0, 64, 64}, {192, 0, 0}, {0, 192, 0}, {0, 0, 192}, {192, 192, 0}, {192, 0, 192}, {0, 192, 192}, {128, 128, 128}, {64, 128, 128}, {128, 64, 128}, {128, 128, 64}, {64, 64, 128}, {64, 128, 64}, {128, 64, 64}, {192, 128, 64}};
 
@@ -45,10 +47,8 @@ namespace vision
 
             cv::Scalar color = class_color(obj.class_label);
 
-            // 框
             cv::rectangle(image, rect, color, thickness);
 
-            // 文本
             std::string text = cv::format(
                 "%s %.2f",
                 yolo_labels[obj.class_label],
@@ -91,8 +91,6 @@ namespace vision
             cv::Scalar color = class_color(obj.class_label);
 
             cv::Mat color_mask(mask.size(), CV_8UC3, color);
-            cv::Mat mask_3c;
-            cv::cvtColor(mask, mask_3c, cv::COLOR_GRAY2BGR);
 
             cv::Mat region = img(cv::Rect(left, top, width, height));
             cv::Mat blended;
@@ -102,13 +100,12 @@ namespace vision
         }
     }
 
-    // Block 最终结果绘制
+    // block 结果
     void draw_block_result(
         cv::Mat &image,
         const FinalBlockResult &block,
         int thickness)
     {
-        // Block 有有效的 detection box
         const auto &box = block.detection;
 
         cv::Rect rect(
@@ -134,6 +131,44 @@ namespace vision
             0.7,
             color,
             2);
+    }
+
+    void draw_target_overlay(
+        cv::Mat &image,
+        const FinalBlockResult &block,
+        const PoseEstimate &pose,
+        int thickness)
+    {
+        draw_block_result(image, block, thickness);
+
+        // 标出 best_pattern 中心
+        const auto &box = block.best_pattern;
+        const cv::Point center(
+            static_cast<int>(0.5f * (box.left + box.right)),
+            static_cast<int>(0.5f * (box.top + box.bottom)));
+        cv::circle(image, center, 5, cv::Scalar(0, 255, 255), -1);
+
+        // 输出粗定位结果
+        const cv::Point text_org(
+            std::max(0, static_cast<int>(box.left)),
+            std::max(20, static_cast<int>(box.top) - 10));
+
+        cv::putText(image,
+                    cv::format("%s conf=%.2f", block_class_name(block.block_class), block.confidence),
+                    text_org,
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    0.65,
+                    cv::Scalar(0, 255, 255),
+                    2);
+        cv::putText(image,
+                    cv::format("cam=(%.3f, %.3f, %.3f) robot=(%.3f, %.3f, %.3f)",
+                               pose.camera_center.x(), pose.camera_center.y(), pose.camera_center.z(),
+                               pose.robot_center.x(), pose.robot_center.y(), pose.robot_center.z()),
+                    cv::Point(text_org.x, text_org.y + 22),
+                    cv::FONT_HERSHEY_SIMPLEX,
+                    0.52,
+                    cv::Scalar(255, 255, 255),
+                    1);
     }
 
 } // namespace vision

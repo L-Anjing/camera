@@ -122,6 +122,14 @@ set_target_properties(k4a_serial_node PROPERTIES
     BUILD_RPATH "${SERIAL_LIBRARY_DIR}"
     INSTALL_RPATH "${SERIAL_LIBRARY_DIR}")
 
+add_executable(usb_serial_node ${SERIAL_NODE_SOURCES})
+ament_target_dependencies(usb_serial_node rclcpp std_msgs)
+target_include_directories(usb_serial_node PRIVATE ${SERIAL_INCLUDE_DIR})
+target_link_libraries(usb_serial_node ${SERIAL_LIBRARY})
+set_target_properties(usb_serial_node PROPERTIES
+    BUILD_RPATH "${SERIAL_LIBRARY_DIR}"
+    INSTALL_RPATH "${SERIAL_LIBRARY_DIR}")
+
 # ---- 安装 ----
 install(TARGETS
     k4a_detect
@@ -130,6 +138,7 @@ install(TARGETS
     k4a_capture_images
     rs_viewer
     k4a_serial_node
+    usb_serial_node
     DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch

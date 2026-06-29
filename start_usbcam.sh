@@ -3,6 +3,11 @@
 set -uo pipefail
 
 PIDFILE=/tmp/usb_watchdog.pid
+WORKSPACE_DIR=${WORKSPACE_DIR:-$HOME/workspace}
+USB_YOLO_CONFIG=${USB_YOLO_CONFIG:-$WORKSPACE_DIR/src/camera_bridge/config/UsbRosConfig.yaml}
+USB_YOLO_TOPIC=${USB_YOLO_TOPIC:-}
+USB_YOLO_SERIAL_PORT=${USB_YOLO_SERIAL_PORT:-/dev/ttyUSB0}
+SERIAL_BAUD=${SERIAL_BAUD:-115200}
 
 ##################################################
 # 状态管理
@@ -59,9 +64,34 @@ load_env()
 {
     set +u
     source /opt/ros/humble/setup.bash || return 1
-    source ~/workspace/camera_ws/install/setup.bash || return 1
+    source "$WORKSPACE_DIR/install/setup.bash" || return 1
     set -u
     return 0
+}
+
+wait_for_topic()
+{
+    local topic="$1"
+    local timeout="${2:-30}"
+    local start_ts
+    start_ts=$(date +%s)
+
+    while true
+    do
+        [ "$STOP_REQUESTED" = "1" ] && return 1
+
+        if ros2 topic list 2>/dev/null | grep -qx "$topic"; then
+            log "Topic ready: $topic"
+            return 0
+        fi
+
+        if [ $(( $(date +%s) - start_ts )) -ge "$timeout" ]; then
+            log "Timeout waiting topic: $topic"
+            return 1
+        fi
+
+        sleep 0.5
+    done
 }
 
 ##################################################
@@ -141,6 +171,12 @@ fi
 
 log "ROS environment ready"
 
+if [ -z "$USB_YOLO_TOPIC" ] && [ -f "$USB_YOLO_CONFIG" ]; then
+    USB_YOLO_TOPIC=$(awk '/^[[:space:]]*topic:/ {print $2; exit}' "$USB_YOLO_CONFIG" 2>/dev/null || true)
+fi
+USB_YOLO_TOPIC=${USB_YOLO_TOPIC:-/cam_left/image_raw}
+log "YOLO camera topic from config: $USB_YOLO_TOPIC"
+
 ##################################################
 # 主循环
 ##################################################
@@ -149,6 +185,13 @@ while true
 do
 
     [ "$STOP_REQUESTED" = "1" ] && break
+
+    log "Waiting YOLO camera topic: $USB_YOLO_TOPIC"
+    if ! wait_for_topic "$USB_YOLO_TOPIC" 30; then
+        log "YOLO camera topic not ready, retry..."
+        sleep 1
+        continue
+    fi
 
     ################################################
     # 启动launch
@@ -159,6 +202,8 @@ do
     log "Launching usb_detect + serial"
 
     ros2 launch camera_bridge usb_and_serial.launch.py \
+        serial_port:="$USB_YOLO_SERIAL_PORT" \
+        serial_baud:="$SERIAL_BAUD" \
         > "$LAUNCH_LOG" 2>&1 &
 
     LAUNCH_PID=$!

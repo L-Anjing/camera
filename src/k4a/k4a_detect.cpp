@@ -5,6 +5,7 @@
 
 #include "utils/block_recognizer.hpp"
 #include "utils/kalman_tracker.hpp"
+#include "utils/image_preprocess.hpp"
 #include "k4a/camera_k4a.hpp"
 #include "utils/myinfer.hpp"
 #include "utils/vision_draw.hpp"
@@ -25,6 +26,8 @@ int main(int argc, char **argv)
     rclcpp::init(argc, argv);
     auto node = rclcpp::Node::make_shared("k4a_detector");
     signal(SIGINT, sigintHandler);
+
+    RCLCPP_INFO(node->get_logger(), "Inference input: fixed grayscale");
 
     auto target_pub =
         node->create_publisher<std_msgs::msg::String>("/target_info", 10);
@@ -57,8 +60,6 @@ int main(int argc, char **argv)
         {
             auto frame_start = std::chrono::steady_clock::now();
             cv::Mat color_image, depth_image;
-            cv::Mat gray, gray3;
-
             k4a_device.Image_to_Cv(color_image, depth_image);
             if (color_image.empty() || depth_image.empty())
             {
@@ -67,12 +68,10 @@ int main(int argc, char **argv)
             }
                
 
-            cv::cvtColor(color_image, gray, cv::COLOR_BGR2GRAY);
-            cv::cvtColor(gray, gray3, cv::COLOR_GRAY2BGR);
-
-            // YOLO 推理（内部降采样到 640×640 letterbox 加速, 框已自动映射回原尺寸）
+            // YOLO 推理（统一走固定输入预处理，内部降采样到 640×640 letterbox）
             detections.clear();
-            yolo.Single_Inference_Letterbox(gray3, detections, 640);
+            cv::Mat infer_image = vision::build_infer_input(color_image);
+            yolo.Single_Inference_Letterbox(infer_image, detections, 640);
 
             // YOLO Debug 显示
             cv::Mat yolo_vis = color_image.clone();

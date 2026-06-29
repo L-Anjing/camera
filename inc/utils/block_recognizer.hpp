@@ -5,6 +5,7 @@
 #include <set>
 #include <string>
 #include "common/yolo.hpp" //yolo::Box / BoxArray
+#include "common/pose_estimate.hpp"
 
 // Block 枚举（最终语义）
 enum class BlockClass
@@ -59,6 +60,20 @@ struct FinalBlockResult
 // 批量识别结果（多个blocks）
 typedef std::vector<FinalBlockResult> FinalBlockResults;
 
+class UsbCam;
+
+struct TargetSelection
+{
+    const FinalBlockResult *result = nullptr;
+    PoseEstimate pose;
+    float score = -1.0f;
+
+    bool valid() const
+    {
+        return result != nullptr && pose.valid;
+    }
+};
+
 // BlockRecognizer
 
 class BlockRecognizer
@@ -70,3 +85,9 @@ public:
     // 返回融合后的块列表 (可能有多个)
     FinalBlockResults recognize(const yolo::BoxArray &dets) const;
 };
+
+#ifndef BLOCK_RECOGNIZER_STANDALONE_ONLY
+TargetSelection select_best_target(const UsbCam &cam,
+                                   const FinalBlockResults &blocks,
+                                   float face_size_m);
+#endif

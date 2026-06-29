@@ -2,6 +2,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "utils/block_recognizer.hpp"
+#include "common/pose_estimate.hpp"
 #include "common/yolo.hpp"
 
 #include <string>
@@ -24,6 +25,13 @@ namespace vision
     void draw_block_result(
         cv::Mat &image,
         const FinalBlockResult &block,
+        int thickness = 3);
+
+    // 画最终目标的位置与粗定位信息
+    void draw_target_overlay(
+        cv::Mat &image,
+        const FinalBlockResult &block,
+        const PoseEstimate &pose,
         int thickness = 3);
 
     // 绘制3D立方体中心点投影（用于深度验证）
