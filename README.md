@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🎥 Camera Bridge
+# Camera Bridge
 
-**ROS2 package for Azure Kinect · Intel RealSense · Insight9**  
+**ROS2 package for Azure Kinect · Intel RealSense · Orbbec · Insight9 · USB-topic YOLO**  
 _YOLO object detection accelerated by TensorRT_
 
 [![ROS2](https://img.shields.io/badge/ROS2-Humble-blue?style=flat&logo=ros)](https://docs.ros.org/en/humble/)
@@ -15,7 +15,7 @@ _YOLO object detection accelerated by TensorRT_
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Features](#features)
 - [Prerequisites](#prerequisites)
@@ -23,124 +23,137 @@ _YOLO object detection accelerated by TensorRT_
 - [Configuration](#configuration)
 - [Build](#build)
 - [Usage](#usage)
+- [Camera Notes](#camera-notes)
+- [Project Structure](#project-structure)
 
 ---
 
-## ✨ Features
+## Features
 
-- **Multi-Camera Support**: Azure Kinect DK, Intel RealSense D435/D455, and Insight9
-- **Real-time Object Detection**: YOLO integration with TensorRT acceleration
-- **ROS Integration**: Publishes sensor data and detection results via ROS topics
-- **Serial Communication**: Supports serial port communication for external devices
-- **USB ROS2 Pipeline**: USB 摄像头由 `camera_stream` 发布，`usb_detect` 只订阅图像 topic 做检测
+- **Multi-Camera Support**: Azure Kinect DK, Intel RealSense, Orbbec Femto Bolt, Insight9, and USB-topic input.
+- **TensorRT YOLO Inference**: Shared YOLO backend under `src/utils/yolo`.
+- **ROS2 Integration**: Camera/detection nodes publish results through ROS2 topics.
+- **Serial Communication**: `serial_node` is available for external device communication.
+- **Capture Utilities**: K4A and Orbbec image/video capture helpers are included.
+- **Training / Conversion Scripts**: Dataset, ONNX, and TensorRT helper scripts live under `workspace/scripts`.
 
 ---
 
-## 📦 Prerequisites
+## Prerequisites
 
 ### System Requirements
+
 - Ubuntu 22.04
-- NVIDIA GPU with CUDA support
 - ROS2 Humble
+- NVIDIA GPU with CUDA support
 
 ### Required Dependencies
 
-Refer to `requirement.md`. All dependencies must be properly installed before building:
+Refer to `requirement.md`. Main dependencies:
 
 | Dependency | Version / Notes |
-|------------|----------------|
-| **CUDA** | 11.x or higher |
+|------------|-----------------|
+| **CUDA** | 11.x or compatible with TensorRT |
 | **cuDNN** | Compatible with CUDA version |
-| **TensorRT** | 8.6.1.6 — extract to `~/TensorRT-8.6.1.6` or set `TensorRT_ROOT` |
-| **OpenCV** | 4.2 — `apt install libopencv-dev` |
-| **PCL** | `apt install libpcl-dev` |
-| **VTK 7.1** | `apt install libvtk7-dev libvtk7-qt-dev` |
+| **TensorRT** | 8.6.1.6, default path `/opt/TensorRT-8.6.1.6` |
+| **OpenCV** | `sudo apt install libopencv-dev` |
+| **PCL** | `sudo apt install libpcl-dev` |
 | **ROS2 Humble** | Desktop or base install |
-| **Azure Kinect SDK** | For K4A camera support |
-| **Intel RealSense SDK** | For RealSense camera support |
+| **Azure Kinect SDK** | Required for K4A targets |
+| **Intel RealSense SDK** | Required for RealSense targets |
 | **yaml-cpp** | `sudo apt install libyaml-cpp-dev` |
-
-Additional dependencies will be reported during build if missing.
+| **serial** | Expected under `/home/pi/workspace/3rd_ws/install/serial` |
+| **OrbbecSDK** | Optional; Orbbec targets are skipped if not found |
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### 1. Create ROS2 Workspace
+
 ```bash
-mkdir -p ~/camera_ws/src
+mkdir -p ~/workspace/camera_ws/src
 ```
 
-### 2. Clone Repository
+### 2. Place Package
+
 ```bash
-cd ~/camera_ws/src
-git clone https://github.com/L-Anjing/camera camera_bridge
+cd ~/workspace/camera_ws/src
+# put this package here as:
+# ~/workspace/camera_ws/src/camera_bridge
 ```
 
 ### 3. Install Dependencies
-Refer to `requirement.md` and install each dependency according to the official documentation or Notion notes.
 
-> **⚠️ Note:** CUDA, cuDNN and TensorRT must be **version-compatible** — check the official compatibility matrix.
+Install dependencies from `requirement.md` and make sure CUDA, cuDNN, and
+TensorRT versions are compatible.
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-### TensorRT Path Setup
-The default TensorRT path is `$ENV{HOME}/TensorRT-8.6.1.6`.  
-Edit `CMakeLists.txt`:
+### TensorRT Path
+
+The current default path in `CMakeLists.txt` is:
 
 ```cmake
-# 手动指定 TensorRT 路径 (基于你之前的安装路径)
 set(TensorRT_ROOT "/opt/TensorRT-8.6.1.6")
 set(TENSORRT_INCLUDE_DIR "${TensorRT_ROOT}/include")
 set(TENSORRT_LIB_DIR "${TensorRT_ROOT}/lib")
 ```
 
-### Camera Configuration
-Edit configuration files in `config/`:
+Change this path if TensorRT is installed elsewhere.
+
+### Config Files
 
 | File | Purpose |
 |------|---------|
 | `K4AConfig.yaml` | Azure Kinect settings |
 | `RsConfig.yaml` | RealSense settings |
-| `Insight9Config.yaml` | Insight9 camera settings (refer to K4AConfig.yaml format) |
-| `UsbRosConfig.yaml` | USB ROS2 单路订阅配置（默认订阅 `/cam_left/image_raw`） |
+| `OrbbecConfig.yaml` | Orbbec settings |
+| `Insight9Config.yaml` | Insight9 settings |
+| `UsbRosConfig.yaml` | Single ROS image topic input for `usb_detect` |
+
+`UsbRosConfig.yaml` only configures `camera_bridge/usb_detect`; it does not
+configure any other package.
 
 ---
 
-## 🔨 Build
+## Build
 
 ```bash
-cd ~/camera_ws
+cd ~/workspace/camera_ws
 source /opt/ros/humble/setup.bash
 colcon build --packages-select camera_bridge
-```
-
----
-
-## ▶️ Usage
-
-### Source Environment
-
-```bash
-source /opt/ros/humble/setup.bash
-cd ~/camera_ws
 source install/setup.bash
 ```
 
-### Run ROS2 Nodes
+If `OrbbecSDK` is missing, CMake prints a warning and skips Orbbec targets.
+
+---
+
+## Usage
+
+### Run ROS2 Executables
 
 | Command | Description |
 |---------|-------------|
 | `ros2 run camera_bridge k4a_detect` | Azure Kinect detection |
-| `ros2 run camera_bridge rs_viewer` | RealSense viewer |
+| `ros2 run camera_bridge rs_viewer` | RealSense viewer / detection entry |
 | `ros2 run camera_bridge insight9_detect` | Insight9 detection |
-| `ros2 run camera_bridge k4a_capture_images` | Capture images |
-| `ros2 run camera_bridge serial_node` | Serial communication |
-| `ros2 run camera_bridge usb_detect` | USB camera detection from ROS2 topic |
+| `ros2 run camera_bridge usb_detect` | YOLO detection from one ROS image topic |
+| `ros2 run camera_bridge k4a_capture_images` | Capture K4A images |
+| `ros2 run camera_bridge serial_node` | Serial communication utility |
 
-### Run with Launch File
+Orbbec executables are available only when `OrbbecSDK` is found:
+
+| Command | Description |
+|---------|-------------|
+| `ros2 run camera_bridge orbbec_detect` | Orbbec detection |
+| `ros2 run camera_bridge orbbec_capture_images` | Capture Orbbec images |
+| `ros2 run camera_bridge orbbec_capture_videos` | Capture Orbbec videos |
+
+### Run with Launch Files
 
 ```bash
 # K4A camera + serial communication
@@ -152,72 +165,78 @@ ros2 launch camera_bridge insight9_detect.launch.py
 # Insight9 camera + serial communication
 ros2 launch camera_bridge insight9_and_serial.launch.py
 
-# USB camera detection only
+# USB topic detection only
 ros2 launch camera_bridge usb_detect.launch.py
 
-# USB camera + serial communication
+# USB topic detection + serial communication
 ros2 launch camera_bridge usb_and_serial.launch.py
 
 # Orbbec camera + serial communication
 ros2 launch camera_bridge orbbec_and_serial.launch.py
+```
 
-# Orbbec watchdog launcher
+### Helper Scripts
+
+```bash
+./start_camera.sh
+./start_usbcam.sh
 ./start_orbbec.sh
 ```
 
----
-
-## 🔗 ROS2 Topic Topology
-
-实际工程建议按下面的方式组织 topic：
-
-| 节点 | 输入 | 输出 |
-|------|------|------|
-| `camera_stream/camera.launch.py` | `/dev/camera_left`, `/dev/camera_right` | `/cam_left/image_raw`, `/cam_right/image_raw` |
-| `camera_bridge/usb_detect` | `/cam_left/image_raw` | `/target_info` |
-| `color_detect/color_detect_node` | `/cam_left/image_raw`, `/cam_right/image_raw` | `/color_detect/state` |
-
-`usb_detect` 只使用 `config/UsbRosConfig.yaml`，也就是只订阅一路 ROS2 图像 topic。
-相机发布端的设备路径、格式、分辨率、帧率统一由 `camera_stream/config/camera_stream.yaml` 管理。
-
-### USB 相机约定
-
-- 相机发布端统一使用 `camera_stream`
-- 默认分辨率为 `1280x720`
-- 默认帧率为 `30FPS`
-- 默认编码格式为 `MJPEG`
-- 检测节点不再负责打开 `/dev/video*`
-
-## 🔌 Insight9 相机集成
-
-基于 ROS2 Topic 的相机驱动，兼容 K4A 模块接口。
-
-### Topic 映射
-
-| 功能 | Topic |
-|------|-------|
-| 彩色图 | `/camera/camera/color/image_rect_raw/compressed` |
-| 深度图 | `/camera/camera/depth/image_rect_raw` |
-| 检测结果 | `/insight9/target_info` |
+These scripts belong to `camera_bridge` only.
 
 ---
 
-## 📁 Project Structure
+## Camera Notes
 
+### USB Topic Detection
+
+`usb_detect` subscribes to one ROS image topic configured by:
+
+```text
+config/UsbRosConfig.yaml
 ```
+
+This package does not own the external camera publisher for that topic. Make
+sure the configured topic exists before starting `usb_detect`.
+
+### Insight9 Topic Mapping
+
+| Function | Topic |
+|----------|-------|
+| Color image | `/camera/camera/color/image_rect_raw/compressed` |
+| Depth image | `/camera/camera/depth/image_rect_raw` |
+| Detection result | `/insight9/target_info` |
+
+### Orbbec
+
+Orbbec targets are guarded by `OrbbecSDK_FOUND`. If the SDK is unavailable,
+build continues without Orbbec executables.
+
+---
+
+## Project Structure
+
+```text
 camera_bridge/
-├── config/           # Configuration files
-├── inc/              # Header files
-├── src/              # Source files
-│   ├── common/       # Common utilities
-│   ├── k4a/          # Azure Kinect implementation
-│   ├── insight9/     # Insight9 camera implementation
-│   ├── realsense/    # RealSense implementation
-│   ├── utils/        # Helper utilities
-│   └── yolo/         # YOLO inference engine
-├── launch/           # ROS launch files
-├── workspace/        # Dataset and test files
-├── CMakeLists.txt    # Build configuration
-├── package.xml       # ROS package manifest
-└── requirement.md    # Dependency list and some tips
+├── config/              # Camera and node configuration files
+├── inc/                 # Header files
+├── launch/              # ROS2 launch files
+├── src/
+│   ├── common/          # Shared camera parameters
+│   ├── k4a/             # Azure Kinect implementation
+│   ├── realsense/       # RealSense implementation
+│   ├── orbbec/          # Orbbec implementation
+│   ├── insight9/        # Insight9 implementation
+│   ├── usbcam/          # USB-topic YOLO path
+│   └── utils/           # Serial, TensorRT wrapper, drawing, tracking
+│       └── yolo/        # YOLO TensorRT backend
+├── workspace/
+│   ├── models/          # TensorRT engine files
+│   └── scripts/         # Dataset, training, conversion helpers
+├── CMakeLists.txt       # Build configuration
+├── package.xml          # ROS package manifest
+└── requirement.md       # Dependency list and setup notes
 ```
+
+---
