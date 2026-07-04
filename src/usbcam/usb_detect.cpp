@@ -29,6 +29,22 @@ void sigintHandler(int)
 {
     g_stop_flag = 1;
 }
+
+std::string envOrDefault(const char *name, const std::string &default_value)
+{
+    const char *value = std::getenv(name);
+    return (value && value[0] != '\0') ? std::string(value) : default_value;
+}
+
+bool envBoolOrDefault(const char *name, bool default_value)
+{
+    const char *value = std::getenv(name);
+    if (!value || value[0] == '\0')
+        return default_value;
+    std::string v(value);
+    std::transform(v.begin(), v.end(), v.begin(), ::tolower);
+    return v == "1" || v == "true" || v == "yes" || v == "on";
+}
 } // namespace
 
 int main(int argc, char **argv)
@@ -44,12 +60,18 @@ int main(int argc, char **argv)
     try
     {
         // 固定配置，模型路径按需手动替换
-        const std::string config_path = "/home/li/workspace/src/camera_bridge/config/UsbRosConfig.yaml";
-        std::string engine_path = "/home/li/workspace/src/camera_bridge/workspace/models/260629.engine";
+        const std::string config_path = envOrDefault(
+            "USB_YOLO_CONFIG",
+            "/home/pi/workspace/camera_ws/src/camera_bridge/config/UsbRosConfig.yaml");
+        std::string engine_path = envOrDefault(
+            "USB_YOLO_ENGINE",
+            "/home/pi/workspace/camera_ws/src/camera_bridge/workspace/models/260629.engine");
         constexpr int kInputSize = 640;
         constexpr float kConfidence = 0.5f;
         constexpr float kNms = 0.5f;
         constexpr float kFaceSizeM = 0.05f;
+        constexpr auto kNoFrameTimeout = std::chrono::seconds(10);
+        const bool enable_debug_display = envBoolOrDefault("USB_YOLO_DEBUG_DISPLAY", false);
 
         UsbCam cam;
         if (!cam.open(config_path, std::nullopt, node))
@@ -74,11 +96,15 @@ int main(int argc, char **argv)
 
         BlockRecognizer block_recognizer;
         yolo::BoxArray detections;
-        cv::namedWindow("USB Detect", cv::WINDOW_NORMAL);
-        cv::resizeWindow("USB Detect", 1280, 800);
+        if (enable_debug_display)
+        {
+            cv::namedWindow("YOLO Debug", cv::WINDOW_NORMAL);
+            cv::namedWindow("Final Block", cv::WINDOW_NORMAL);
+        }
 
         int frame_id = 0;
         auto fps_tick = std::chrono::steady_clock::now();
+        auto last_frame_time = std::chrono::steady_clock::now();
         int fps_frames = 0;
 
         while (!g_stop_flag && rclcpp::ok())
@@ -90,8 +116,16 @@ int main(int argc, char **argv)
             if (!cam.read(frame) || frame.empty())
             {
                 rclcpp::spin_some(node);
+                if (std::chrono::steady_clock::now() - last_frame_time > kNoFrameTimeout)
+                {
+                    RCLCPP_FATAL(node->get_logger(),
+                                 "No camera frame for 10s, exit for watchdog restart");
+                    rclcpp::shutdown();
+                    return EXIT_FAILURE;
+                }
                 continue;
             }
+            last_frame_time = std::chrono::steady_clock::now();
 
             // 推理前统一做固定输入预处理
             cv::Mat infer_image = vision::build_infer_input(frame);
@@ -106,16 +140,22 @@ int main(int argc, char **argv)
             TargetSelection best_target = select_best_target(cam, blocks, kFaceSizeM);
 
             // 叠加检测结果和位姿信息
-            cv::Mat vis = frame.clone();
-            vision::draw_yolo_detections(vis, detections);
+            if (enable_debug_display)
+            {
+                cv::Mat yolo_vis = frame.clone();
+                vision::draw_yolo_detections(yolo_vis, detections);
+                cv::imshow("YOLO Debug", yolo_vis);
+            }
+
+            cv::Mat block_vis = frame.clone();
             for (const auto &block : blocks)
             {
-                vision::draw_block_result(vis, block);
+                vision::draw_block_result(block_vis, block);
             }
 
             if (best_target.valid())
             {
-                vision::draw_target_overlay(vis, *best_target.result, best_target.pose);
+                vision::draw_target_overlay(block_vis, *best_target.result, best_target.pose);
 
                 // 发布给下游串口/机器人节点
                 std_msgs::msg::String msg;
@@ -151,7 +191,7 @@ int main(int argc, char **argv)
                 msg.data = "0,0,0,0,0";
                 target_pub->publish(msg);
                 // 没有可用目标时给出提示
-                cv::putText(vis,
+                cv::putText(block_vis,
                             "No valid block target",
                             cv::Point(20, 40),
                             cv::FONT_HERSHEY_SIMPLEX,
@@ -167,7 +207,7 @@ int main(int argc, char **argv)
             if (elapsed_ms >= 1000)
             {
                 const float fps = fps_frames * 1000.0f / std::max<int64_t>(1, elapsed_ms);
-                cv::putText(vis,
+                cv::putText(block_vis,
                             cv::format("FPS: %.1f", fps),
                             cv::Point(20, 80),
                             cv::FONT_HERSHEY_SIMPLEX,
@@ -184,7 +224,7 @@ int main(int argc, char **argv)
 
             const auto loop_end = std::chrono::steady_clock::now();
             const auto loop_ms = std::chrono::duration_cast<std::chrono::milliseconds>(loop_end - loop_start).count();
-            cv::putText(vis,
+            cv::putText(block_vis,
                         cv::format("Loop: %ld ms", static_cast<long>(loop_ms)),
                         cv::Point(20, 115),
                         cv::FONT_HERSHEY_SIMPLEX,
@@ -192,11 +232,14 @@ int main(int argc, char **argv)
                         cv::Scalar(200, 200, 0),
                         2);
 
-            cv::imshow("USB Detect", vis);
-            const char key = static_cast<char>(cv::waitKey(1));
-            if (key == 'q' || key == 27)
+            if (enable_debug_display)
             {
-                break;
+                cv::imshow("Final Block", block_vis);
+                const char key = static_cast<char>(cv::waitKey(10));
+                if (key == 'q' || key == 27)
+                {
+                    break;
+                }
             }
 
             rclcpp::spin_some(node);

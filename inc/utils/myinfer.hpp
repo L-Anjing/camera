@@ -59,6 +59,9 @@ private:
     std::shared_ptr<yolo::Infer> yolo;
     float confidence_threshold;
     float nms_threshold;
+    cv::Mat scratch_resized_;
+    cv::Mat scratch_gray_;
+    cv::Mat scratch_letterbox_;
 
 public:
     void Yolov8_Enable(std::string &engine_);
@@ -78,6 +81,13 @@ public:
     // target_size: 默认 640, 不提供或 0 表示不降采样, 等同 Single_Inference.
     void Single_Inference_Letterbox(cv::Mat &image, yolo::BoxArray &objs_out,
                                     int target_size = 640);
+
+    // Faster path for grayscale-trained models: resize first, convert only the
+    // small image to gray, expand to 3 channels in the letterbox canvas, then
+    // map detections back to the original image coordinates.
+    void Single_Inference_Letterbox_Gray(const cv::Mat &image,
+                                         yolo::BoxArray &objs_out,
+                                         int target_size = 640);
 
 
 

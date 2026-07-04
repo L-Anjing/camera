@@ -12,8 +12,8 @@ def generate_launch_description():
         ),
         Node(
             package='camera_bridge',
-            executable='k4a_serial_node',
-            name='k4a_serial_node',
+            executable='serial_node',
+            name='serial_node',
             output='screen',
             parameters=[{
                 'port': '/dev/azurekinect',

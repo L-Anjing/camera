@@ -12,6 +12,7 @@
 #include <exception>
 #include <memory>
 #include <iostream>
+#include <string>
 
 serial::Serial ser;
 std::shared_ptr<rclcpp::Node> g_node;
@@ -26,11 +27,7 @@ const uint8_t CAM_TAIL[2] = {0xAA, 0xDD};
 //   "1,12.3,45.6,78.9,0.123"
 //
 // 输出 payload:
-//   [ID(1B)]
-//   [x(4B float)]
-//   [y(4B float)]
-//   [z(4B float)]
-//   [yaw(4B float)]
+//   [state(1B)] 0=UNKNOWN 1=WAIT 2=GO
 //
 // 如果数据异常:
 //   自动发送全零数据
@@ -81,7 +78,7 @@ bool parseBBoxString(const std::string &msg,
     // ==================================================
     // 合法性检查
     // ==================================================
-    if (!(cls >= 1 && cls <= 3))
+    if (!(cls >= 0 && cls <= 2))
     {
         valid = false;
     }
@@ -119,24 +116,107 @@ bool parseBBoxString(const std::string &msg,
 
     payload.push_back(static_cast<uint8_t>(cls));
 
-    auto append_float = [&](float value)
-    {
-        uint8_t bytes[4];
-        std::memcpy(bytes, &value, sizeof(float));
-        payload.insert(payload.end(), bytes, bytes + 4);
-    };
-
-    append_float(x);
-    append_float(y);
-    append_float(z);
-    append_float(yaw);
-
     return true;
 }
 
 // ======================================================
 // Camera 回调
 // ======================================================
+bool extractJsonNumber(const std::string &json,
+                       const std::string &key,
+                       float &value)
+{
+    const std::string mark = "\"" + key + "\":";
+    auto pos = json.find(mark);
+    if (pos == std::string::npos)
+    {
+        return false;
+    }
+
+    pos += mark.size();
+    try
+    {
+        size_t parsed = 0;
+        value = std::stof(json.substr(pos), &parsed);
+        return parsed > 0 && std::isfinite(value);
+    }
+    catch (const std::exception &)
+    {
+        return false;
+    }
+}
+
+bool parseBeaconJson(const std::string &json,
+                     std::vector<uint8_t> &payload)
+{
+    float state_f = 0.0f;
+
+    const bool valid = extractJsonNumber(json, "s", state_f);
+    int state = static_cast<int>(state_f);
+    const bool tx_valid = valid && state >= 0 && state <= 2;
+    if (!tx_valid)
+    {
+        state = 0;
+
+        RCLCPP_WARN(
+            g_node->get_logger(),
+            "[serial_bridge] Invalid beacon state, send ZERO packet. input: %s",
+            json.c_str());
+    }
+
+    payload.clear();
+    payload.push_back(static_cast<uint8_t>(state));
+
+    return true;
+}
+
+void WritePacket(const std::vector<uint8_t> &payload,
+                 const char *source)
+{
+    if (!ser.isOpen())
+    {
+        RCLCPP_WARN(
+            g_node->get_logger(),
+            "[serial_bridge] serial port not open");
+        return;
+    }
+
+    std::vector<uint8_t> packet;
+
+    packet.insert(packet.end(),
+                  CAM_HEAD,
+                  CAM_HEAD + 2);
+
+    packet.insert(packet.end(),
+                  payload.begin(),
+                  payload.end());
+
+    packet.insert(packet.end(),
+                  CAM_TAIL,
+                  CAM_TAIL + 2);
+
+    try
+    {
+        ser.write(packet.data(), packet.size());
+    }
+    catch (const std::exception &e)
+    {
+        RCLCPP_ERROR(
+            g_node->get_logger(),
+            "[serial_bridge] %s serial write failed: %s",
+            source,
+            e.what());
+
+        return;
+    }
+
+    RCLCPP_DEBUG(
+        g_node->get_logger(),
+        "[serial_bridge] %s packet sent, %zu bytes",
+        source,
+        packet.size());
+}
+
 void CameraCallback(const std_msgs::msg::String::SharedPtr msg)
 {
     if (!ser.isOpen())
@@ -205,6 +285,15 @@ void CameraCallback(const std_msgs::msg::String::SharedPtr msg)
     //     g_node->get_logger(),
     //     "[serial_bridge] TX HEX: %s",
     //     dbg.str().c_str());
+}
+
+void BeaconCallback(const std_msgs::msg::String::SharedPtr msg)
+{
+    std::vector<uint8_t> payload;
+
+    parseBeaconJson(msg->data, payload);
+
+    WritePacket(payload, "beacon");
 }
 
 // ======================================================
@@ -287,6 +376,12 @@ int main(int argc, char **argv)
             "/target_info",
             10,
             CameraCallback);
+
+    auto sub_beacon =
+        node->create_subscription<std_msgs::msg::String>(
+            "/color_detect/state",
+            10,
+            BeaconCallback);
 
     rclcpp::spin(node);
 

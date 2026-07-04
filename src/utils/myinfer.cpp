@@ -176,6 +176,67 @@ void Yolo::Single_Inference_Letterbox(cv::Mat &image, yolo::BoxArray &objs_out,
   }
 }
 
+void Yolo::Single_Inference_Letterbox_Gray(const cv::Mat &image,
+                                           yolo::BoxArray &objs_out,
+                                           int target_size)
+{
+  if (image.empty())
+  {
+    objs_out.clear();
+    return;
+  }
+
+  if (target_size <= 0)
+  {
+    cv::Mat infer_image;
+    if (image.channels() == 1)
+      cv::cvtColor(image, infer_image, cv::COLOR_GRAY2BGR);
+    else
+      infer_image = image;
+    Single_Inference(infer_image, objs_out);
+    return;
+  }
+
+  float scale = std::min((float)target_size / image.cols,
+                         (float)target_size / image.rows);
+  int rw = std::max(1, (int)(image.cols * scale));
+  int rh = std::max(1, (int)(image.rows * scale));
+  int pt = (target_size - rh) / 2;
+  int pl = (target_size - rw) / 2;
+
+  scratch_letterbox_.create(target_size, target_size, CV_8UC3);
+  scratch_letterbox_.setTo(cv::Scalar(114, 114, 114));
+
+  if (image.channels() == 1)
+  {
+    cv::resize(image, scratch_gray_, cv::Size(rw, rh), 0, 0, cv::INTER_LINEAR);
+  }
+  else
+  {
+    cv::resize(image, scratch_resized_, cv::Size(rw, rh), 0, 0, cv::INTER_LINEAR);
+    if (scratch_resized_.channels() == 3)
+      cv::cvtColor(scratch_resized_, scratch_gray_, cv::COLOR_BGR2GRAY);
+    else if (scratch_resized_.channels() == 4)
+      cv::cvtColor(scratch_resized_, scratch_gray_, cv::COLOR_BGRA2GRAY);
+    else
+      scratch_gray_ = scratch_resized_;
+  }
+
+  cv::Mat roi = scratch_letterbox_(cv::Rect(pl, pt, rw, rh));
+  cv::Mat gray_channels[] = {scratch_gray_, scratch_gray_, scratch_gray_};
+  cv::merge(gray_channels, 3, roi);
+
+  Single_Inference(scratch_letterbox_, objs_out);
+
+  for (auto &d : objs_out)
+  {
+    d.left = (d.left - pl) / scale;
+    d.top = (d.top - pt) / scale;
+    d.right = (d.right - pl) / scale;
+    d.bottom = (d.bottom - pt) / scale;
+  }
+}
+
 Yolo::Yolo()
 {
   load_flag = 0;

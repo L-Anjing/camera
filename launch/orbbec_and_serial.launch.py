@@ -1,20 +1,19 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument, Shutdown
+from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
     return LaunchDescription([
-        DeclareLaunchArgument('serial_port', default_value='/dev/azurekinect'),
+        DeclareLaunchArgument('serial_port', default_value='/dev/orbbec'),
         DeclareLaunchArgument('serial_baud', default_value='115200'),
 
         Node(
             package='camera_bridge',
-            executable='usb_detect',
-            name='usb_detect',
-            output='screen',
-            on_exit=Shutdown(reason='usb_detect exited'),
+            executable='orbbec_detect',
+            name='orbbec_detect',
+            output='screen'
         ),
         Node(
             package='camera_bridge',
@@ -24,7 +23,6 @@ def generate_launch_description():
             parameters=[{
                 'port': LaunchConfiguration('serial_port'),
                 'baudrate': LaunchConfiguration('serial_baud')
-            }],
-            on_exit=Shutdown(reason='serial_node exited'),
+            }]
         ),
     ])

@@ -19,7 +19,8 @@ class Node;
 class UsbCam
 {
 public:
-    UsbCam() = default;
+    UsbCam();
+    ~UsbCam();
 
     /// 从配置文件加载内参并打开相机
     /// 配置文件格式: YAML, 包含 fx, fy, cx, cy, device_id(可选,默认0)

@@ -86,6 +86,9 @@ public:
     FinalBlockResults recognize(const yolo::BoxArray &dets) const;
 };
 
+const FinalBlockResult *select_highest_confidence_target(
+    const FinalBlockResults &blocks);
+
 #ifndef BLOCK_RECOGNIZER_STANDALONE_ONLY
 TargetSelection select_best_target(const UsbCam &cam,
                                    const FinalBlockResults &blocks,

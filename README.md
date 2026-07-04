@@ -105,8 +105,7 @@ Edit configuration files in `config/`:
 | `K4AConfig.yaml` | Azure Kinect settings |
 | `RsConfig.yaml` | RealSense settings |
 | `Insight9Config.yaml` | Insight9 camera settings (refer to K4AConfig.yaml format) |
-| `UsbConfig.yaml` | USB 设备参数与标定信息（旧的本地直读配置） |
-| `UsbRosConfig.yaml` | USB ROS2 单路订阅配置（默认左相机） |
+| `UsbRosConfig.yaml` | USB ROS2 单路订阅配置（默认订阅 `/cam_left/image_raw`） |
 
 ---
 
@@ -138,7 +137,7 @@ source install/setup.bash
 | `ros2 run camera_bridge rs_viewer` | RealSense viewer |
 | `ros2 run camera_bridge insight9_detect` | Insight9 detection |
 | `ros2 run camera_bridge k4a_capture_images` | Capture images |
-| `ros2 run camera_bridge k4a_serial_node` | Serial communication |
+| `ros2 run camera_bridge serial_node` | Serial communication |
 | `ros2 run camera_bridge usb_detect` | USB camera detection from ROS2 topic |
 
 ### Run with Launch File
@@ -158,6 +157,12 @@ ros2 launch camera_bridge usb_detect.launch.py
 
 # USB camera + serial communication
 ros2 launch camera_bridge usb_and_serial.launch.py
+
+# Orbbec camera + serial communication
+ros2 launch camera_bridge orbbec_and_serial.launch.py
+
+# Orbbec watchdog launcher
+./start_orbbec.sh
 ```
 
 ---
@@ -172,8 +177,8 @@ ros2 launch camera_bridge usb_and_serial.launch.py
 | `camera_bridge/usb_detect` | `/cam_left/image_raw` | `/target_info` |
 | `color_detect/color_detect_node` | `/cam_left/image_raw`, `/cam_right/image_raw` | `/color_detect/state` |
 
-`usb_detect` 默认使用 `config/UsbRosConfig.yaml`，也就是只订阅一路 ROS2 图像 topic。
-相机发布端的格式、分辨率、帧率统一由 [camera_stream/config/camera_stream.yaml](/home/li/workspace/src/camera_stream/config/camera_stream.yaml) 管理。
+`usb_detect` 只使用 `config/UsbRosConfig.yaml`，也就是只订阅一路 ROS2 图像 topic。
+相机发布端的设备路径、格式、分辨率、帧率统一由 `camera_stream/config/camera_stream.yaml` 管理。
 
 ### USB 相机约定
 

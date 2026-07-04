@@ -152,6 +152,24 @@ FinalBlockResults BlockRecognizer::recognize(const yolo::BoxArray &dets) const
     return results;
 }
 
+const FinalBlockResult *select_highest_confidence_target(
+    const FinalBlockResults &blocks)
+{
+    if (blocks.empty())
+    {
+        return nullptr;
+    }
+
+    auto best_it = std::max_element(
+        blocks.begin(), blocks.end(),
+        [](const FinalBlockResult &a, const FinalBlockResult &b)
+        {
+            return a.confidence < b.confidence;
+        });
+
+    return best_it == blocks.end() ? nullptr : &(*best_it);
+}
+
 #ifndef BLOCK_RECOGNIZER_STANDALONE_ONLY
 TargetSelection select_best_target(const UsbCam &cam,
                                    const FinalBlockResults &blocks,

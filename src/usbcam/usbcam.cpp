@@ -19,6 +19,10 @@ struct UsbCam::RosInput
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr subscription;
 };
 
+UsbCam::UsbCam() = default;
+
+UsbCam::~UsbCam() = default;
+
 bool UsbCam::open(const std::string &config_path,
                   std::optional<int> device_id_override,
                   const std::shared_ptr<rclcpp::Node> &ros_node)

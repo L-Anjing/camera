@@ -1,0 +1,18 @@
+# Orbbec Femto Bolt camera configuration
+camera:
+  width: 1280
+  height: 720
+  fps: 30
+  mode: "default"
+transform:
+  # Camera-to-robot rotation matrix R (3x3)
+  rotation:
+    - [0.2273, 0.3271, 0.9172]
+    - [0.0787, -0.9450, 0.3175]
+    - [0.9706, 0, -0.2406]
+  # Camera-to-robot translation T, unit: meter
+  translation: [0.32217, -0.33466, 0.62044]
+
+params:
+  min_dist: 0.01
+  max_dist: 2.0

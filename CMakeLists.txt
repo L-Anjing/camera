@@ -23,6 +23,7 @@ find_package(CUDA REQUIRED)
 find_package(realsense2 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(k4a REQUIRED)
+find_package(OrbbecSDK QUIET)
 find_package(yaml-cpp REQUIRED)
 find_package(OpenCV REQUIRED)
 
@@ -55,7 +56,7 @@ link_directories(
 )
 
 # ---- YOLO 子模块 ----
-add_subdirectory(src/yolo)
+add_subdirectory(src/utils/yolo)
 
 # ---- 通用库定义 ----
 set(COMMON_LIBS
@@ -71,9 +72,10 @@ set(COMMON_LIBS
 
 # ---- 源文件定义 ----
 set(COMMON_SOURCES src/common/camera_params.cpp src/utils/vision_draw.cpp src/utils/kalman_tracker.cpp)
-set(RS_SOURCES ${COMMON_SOURCES} src/realsense/rs_detect.cpp src/realsense/realsense.cpp src/utils/myinfer.cpp src/yolo/yolo.cu)
-set(K4A_DETECT_SOURCES ${COMMON_SOURCES} src/k4a/camera_k4a.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/k4a/k4a_detect.cpp src/yolo/yolo.cu)
-set(INSIGHT9_DETECT_SOURCES ${COMMON_SOURCES} src/insight9/camera_insight9.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/insight9/insight9_detect.cpp src/yolo/yolo.cu)
+set(RS_SOURCES ${COMMON_SOURCES} src/realsense/rs_detect.cpp src/realsense/realsense.cpp src/utils/myinfer.cpp src/utils/yolo/yolo.cu)
+set(K4A_DETECT_SOURCES ${COMMON_SOURCES} src/k4a/camera_k4a.cpp src/usbcam/usbcam.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/k4a/k4a_detect.cpp src/utils/yolo/yolo.cu)
+set(ORBBEC_DETECT_SOURCES ${COMMON_SOURCES} src/orbbec/camera_orbbec.cpp src/usbcam/usbcam.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/orbbec/orbbec_detect.cpp src/utils/yolo/yolo.cu)
+set(INSIGHT9_DETECT_SOURCES ${COMMON_SOURCES} src/insight9/camera_insight9.cpp src/usbcam/usbcam.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/insight9/insight9_detect.cpp src/utils/yolo/yolo.cu)
 set(SERIAL_NODE_SOURCES src/utils/serial.cpp)
 
 # ---- K4A Detect Node ----
@@ -82,6 +84,63 @@ target_compile_options(k4a_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75
 ament_target_dependencies(k4a_detect rclcpp std_msgs sensor_msgs cv_bridge image_transport)
 target_link_libraries(k4a_detect k4a::k4a ${COMMON_LIBS})
 
+# ---- Orbbec Femto Bolt Detect Node ----
+if(OrbbecSDK_FOUND)
+    if(TARGET OrbbecSDK::OrbbecSDK)
+        set(ORBBECSDK_LIB OrbbecSDK::OrbbecSDK)
+    elseif(DEFINED OrbbecSDK_LIBRARIES)
+        set(ORBBECSDK_LIB ${OrbbecSDK_LIBRARIES})
+    elseif(DEFINED OrbbecSDK_LIBRARY)
+        set(ORBBECSDK_LIB ${OrbbecSDK_LIBRARY})
+    else()
+        set(ORBBECSDK_LIB OrbbecSDK)
+    endif()
+
+    add_executable(orbbec_detect ${ORBBEC_DETECT_SOURCES})
+    target_compile_options(orbbec_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+    if(DEFINED OrbbecSDK_INCLUDE_DIRS)
+        target_include_directories(orbbec_detect PRIVATE ${OrbbecSDK_INCLUDE_DIRS})
+    elseif(DEFINED OrbbecSDK_INCLUDE_DIR)
+        target_include_directories(orbbec_detect PRIVATE ${OrbbecSDK_INCLUDE_DIR})
+    endif()
+    ament_target_dependencies(orbbec_detect rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+    target_link_libraries(orbbec_detect ${ORBBECSDK_LIB} ${COMMON_LIBS})
+
+    add_executable(orbbec_capture_images
+        src/orbbec/orbbec_capture_images.cpp
+        src/orbbec/camera_orbbec.cpp
+        ${COMMON_SOURCES}
+    )
+    target_compile_options(orbbec_capture_images PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+    if(DEFINED OrbbecSDK_INCLUDE_DIRS)
+        target_include_directories(orbbec_capture_images PRIVATE ${OrbbecSDK_INCLUDE_DIRS})
+    elseif(DEFINED OrbbecSDK_INCLUDE_DIR)
+        target_include_directories(orbbec_capture_images PRIVATE ${OrbbecSDK_INCLUDE_DIR})
+    endif()
+    ament_target_dependencies(orbbec_capture_images
+        rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+    target_link_libraries(orbbec_capture_images ${ORBBECSDK_LIB} ${COMMON_LIBS})
+
+    add_executable(orbbec_capture_videos
+        src/orbbec/orbbec_capture_videos.cpp
+        src/orbbec/camera_orbbec.cpp
+        ${COMMON_SOURCES}
+    )
+    target_compile_options(orbbec_capture_videos PRIVATE
+        $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
+    if(DEFINED OrbbecSDK_INCLUDE_DIRS)
+        target_include_directories(orbbec_capture_videos PRIVATE ${OrbbecSDK_INCLUDE_DIRS})
+    elseif(DEFINED OrbbecSDK_INCLUDE_DIR)
+        target_include_directories(orbbec_capture_videos PRIVATE ${OrbbecSDK_INCLUDE_DIR})
+    endif()
+    ament_target_dependencies(orbbec_capture_videos
+        rclcpp std_msgs sensor_msgs cv_bridge image_transport)
+    target_link_libraries(orbbec_capture_videos ${ORBBECSDK_LIB} ${COMMON_LIBS})
+else()
+    message(WARNING "OrbbecSDK not found; skip Orbbec Femto Bolt targets.")
+endif()
+
 # ---- Insight9 Detect Node ----
 add_executable(insight9_detect ${INSIGHT9_DETECT_SOURCES})
 target_compile_options(insight9_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
@@ -89,7 +148,7 @@ ament_target_dependencies(insight9_detect rclcpp std_msgs sensor_msgs cv_bridge 
 target_link_libraries(insight9_detect ${COMMON_LIBS})
 
 # ---- USB Camera Detect Node ----
-set(USB_DETECT_SOURCES ${COMMON_SOURCES} src/usbcam/usbcam.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/usbcam/usb_detect.cpp src/yolo/yolo.cu)
+set(USB_DETECT_SOURCES ${COMMON_SOURCES} src/usbcam/usbcam.cpp src/utils/myinfer.cpp src/utils/block_recognizer.cpp src/usbcam/usb_detect.cpp src/utils/yolo/yolo.cu)
 add_executable(usb_detect ${USB_DETECT_SOURCES})
 target_compile_options(usb_detect PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-arch=sm_75>)
 ament_target_dependencies(usb_detect rclcpp std_msgs sensor_msgs cv_bridge image_transport)
@@ -114,19 +173,11 @@ ament_target_dependencies(rs_viewer rclcpp std_msgs sensor_msgs cv_bridge image_
 target_link_libraries(rs_viewer realsense2::realsense2 ${COMMON_LIBS})
 
 # ---- Serial Node ----
-add_executable(k4a_serial_node ${SERIAL_NODE_SOURCES})
-ament_target_dependencies(k4a_serial_node rclcpp std_msgs)
-target_include_directories(k4a_serial_node PRIVATE ${SERIAL_INCLUDE_DIR})
-target_link_libraries(k4a_serial_node ${SERIAL_LIBRARY})
-set_target_properties(k4a_serial_node PROPERTIES
-    BUILD_RPATH "${SERIAL_LIBRARY_DIR}"
-    INSTALL_RPATH "${SERIAL_LIBRARY_DIR}")
-
-add_executable(usb_serial_node ${SERIAL_NODE_SOURCES})
-ament_target_dependencies(usb_serial_node rclcpp std_msgs)
-target_include_directories(usb_serial_node PRIVATE ${SERIAL_INCLUDE_DIR})
-target_link_libraries(usb_serial_node ${SERIAL_LIBRARY})
-set_target_properties(usb_serial_node PROPERTIES
+add_executable(serial_node ${SERIAL_NODE_SOURCES})
+ament_target_dependencies(serial_node rclcpp std_msgs)
+target_include_directories(serial_node PRIVATE ${SERIAL_INCLUDE_DIR})
+target_link_libraries(serial_node ${SERIAL_LIBRARY})
+set_target_properties(serial_node PROPERTIES
     BUILD_RPATH "${SERIAL_LIBRARY_DIR}"
     INSTALL_RPATH "${SERIAL_LIBRARY_DIR}")
 
@@ -137,9 +188,16 @@ install(TARGETS
     usb_detect
     k4a_capture_images
     rs_viewer
-    k4a_serial_node
-    usb_serial_node
+    serial_node
     DESTINATION lib/${PROJECT_NAME})
+
+if(OrbbecSDK_FOUND)
+    install(TARGETS
+        orbbec_detect
+        orbbec_capture_images
+        orbbec_capture_videos
+        DESTINATION lib/${PROJECT_NAME})
+endif()
 
 install(DIRECTORY launch
     DESTINATION share/${PROJECT_NAME})
