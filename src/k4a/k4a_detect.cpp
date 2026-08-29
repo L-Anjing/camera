@@ -35,13 +35,13 @@ int main(int argc, char **argv)
     try
     {
         // 初始化 - 使用绝对路径或从环境变量获取
-        std::string config_path = "/home/pi/workspace/camera_ws/src/camera_bridge/config/K4AConfig.yaml";
+        std::string config_path = "../../config/K4AConfig.yaml";
         K4a k4a_device = K4a::Create_FromFile(config_path);
         Yolo yolo;
         BlockRecognizer block_recognizer;
 
         std::string engine_path =
-            "/home/pi/workspace/camera_ws/src/camera_bridge/workspace/models/260425.engine";
+            "../../workspace/models/xxx.engine";
 
         yolo.Yolov8_Enable(engine_path);
 
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 
         int frame_id = 0;
 
-        // ── 卡尔曼滤波 + 航迹管理 ─────────────────────
+        //  卡尔曼滤波 + 航迹管理
         TrackManager track_manager;
         auto prev_time = std::chrono::steady_clock::now();
 
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
                     // 绘制融合结果
                     vision::draw_block_result(block_vis, results);
 
-                    // ── RANSAC 平面拟合 + 射线求交求 3D ──
+                    //  RANSAC 平面拟合 + 射线求交求 3D 
                     const Eigen::Matrix3f &Rmat = k4a_device.get_rotation();
                     const Eigen::Vector3f &Tvec = k4a_device.get_translation();
 
@@ -127,7 +127,7 @@ int main(int argc, char **argv)
                         }
                     }
 
-                    // ── 卡尔曼滤波 + 航迹管理 ─────────────
+                    //  卡尔曼滤波 + 航迹管理 
                     auto now = std::chrono::steady_clock::now();
                     float dt = std::chrono::duration<float>(now - prev_time).count();
                     prev_time = now;
@@ -167,7 +167,7 @@ int main(int argc, char **argv)
                     msg.data = ss.str();
                     target_pub->publish(msg);
 
-                    // // PCL 显示
+                    // PCL 显示
                     // if (first_cloud)
                     // {
                     //     viewer->addPointCloud<pcl::PointXYZ>(cloud, "target_cloud");
